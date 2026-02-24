@@ -1,0 +1,77 @@
+# Dockerfile.saas — Multi-stage build for SaaS mode
+# Runs both flipbook and LastSaaS backends behind Caddy reverse proxy.
+#
+# Build: docker build -f Dockerfile.saas -t flipbook-saas .
+# Requires: lastsaas/ directory (run ./scripts/setup-saas.sh first)
+
+# ============================================================
+# Stage 1: Build flipbook Go binary
+# ============================================================
+FROM golang:1.25-bookworm AS flipbook-builder
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 go build -o bin/flipbook .
+
+# ============================================================
+# Stage 2: Build LastSaaS Go binary
+# ============================================================
+FROM golang:1.25-bookworm AS lastsaas-builder
+WORKDIR /app
+COPY lastsaas/backend/go.mod lastsaas/backend/go.sum ./
+RUN go mod download
+COPY lastsaas/backend/ .
+RUN CGO_ENABLED=0 go build -o lastsaas ./cmd/server
+
+# ============================================================
+# Stage 3: Build SaaS frontend (LastSaaS + flipbook overlay)
+# ============================================================
+FROM node:22-slim AS frontend-builder
+WORKDIR /build
+
+# Copy LastSaaS frontend as base
+COPY lastsaas/frontend/ ./
+
+# Apply flipbook overlay on top
+COPY frontend-overlay/ ./
+
+# Install and build
+RUN npm install --legacy-peer-deps 2>/dev/null || npm install
+RUN npm install react-is --legacy-peer-deps 2>/dev/null || true
+RUN npm run build
+
+# ============================================================
+# Stage 4: Production runtime
+# ============================================================
+FROM debian:bookworm-slim
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libreoffice-impress poppler-utils ca-certificates \
+    caddy supervisor && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy flipbook binary + templates
+COPY --from=flipbook-builder /app/bin/flipbook .
+COPY --from=flipbook-builder /app/web ./web
+
+# Copy LastSaaS binary + config + version
+COPY --from=lastsaas-builder /app/lastsaas ./lastsaas-server
+COPY lastsaas/VERSION ./VERSION
+COPY lastsaas/backend/config/ ./lastsaas-config/
+# Create prod.yaml from the example (it uses env var expansion at runtime)
+RUN cp ./lastsaas-config/prod.example.yaml ./lastsaas-config/prod.yaml
+
+# Copy built frontend
+COPY --from=frontend-builder /build/dist ./frontend-dist
+
+# Copy runtime configs
+COPY deploy/Caddyfile /etc/caddy/Caddyfile
+COPY deploy/supervisord.conf /etc/supervisor/conf.d/flipbook.conf
+
+EXPOSE 8080
+
+CMD ["supervisord", "-c", "/etc/supervisor/conf.d/flipbook.conf"]
