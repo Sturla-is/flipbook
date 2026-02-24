@@ -22,7 +22,8 @@ WORKDIR /app
 COPY lastsaas/backend/go.mod lastsaas/backend/go.sum ./
 RUN go mod download
 COPY lastsaas/backend/ .
-RUN CGO_ENABLED=0 go build -o lastsaas ./cmd/server
+COPY lastsaas/VERSION ./VERSION
+RUN CGO_ENABLED=0 go build -ldflags "-X lastsaas/internal/version.buildVersion=$(cat VERSION)" -o lastsaas ./cmd/server
 
 # ============================================================
 # Stage 3: Build SaaS frontend (LastSaaS + flipbook overlay)
@@ -58,9 +59,8 @@ WORKDIR /app
 COPY --from=flipbook-builder /app/bin/flipbook .
 COPY --from=flipbook-builder /app/web ./web
 
-# Copy LastSaaS binary + config + version
+# Copy LastSaaS binary + config
 COPY --from=lastsaas-builder /app/lastsaas ./lastsaas-server
-COPY lastsaas/VERSION ./VERSION
 COPY lastsaas/backend/config/ ./lastsaas-config/
 # Create prod.yaml from the example (it uses env var expansion at runtime)
 RUN cp ./lastsaas-config/prod.example.yaml ./lastsaas-config/prod.yaml
