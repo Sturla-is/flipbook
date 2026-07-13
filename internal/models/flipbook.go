@@ -24,6 +24,7 @@ type Flipbook struct {
 	PageHeight   int
 	IsPublic     bool
 	GridFSFileID string
+	TenantID     string // Owning tenant (empty = legacy admin flipbook)
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 	ConvertedAt  *time.Time

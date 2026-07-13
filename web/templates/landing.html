@@ -1,0 +1,253 @@
+{{define "landing"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flipbook — Turn Presentations into Interactive Page-Flip Experiences</title>
+    <meta name="description" content="Upload your PowerPoint or PDF and instantly create beautiful, interactive flipbooks with realistic page-turning effects. Share and embed anywhere.">
+    <link rel="icon" href="/static/img/favicon.svg">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a0f;
+            color: #e0e0e0;
+            min-height: 100vh;
+        }
+
+        /* Nav */
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #fff;
+        }
+        .logo span { color: #6366f1; }
+        .nav-links a {
+            color: #aaa;
+            text-decoration: none;
+            margin-left: 1.5rem;
+            font-size: 0.95rem;
+        }
+        .nav-links a:hover { color: #fff; }
+        .nav-links .btn-signup {
+            background: #6366f1;
+            color: #fff;
+            padding: 0.5rem 1.25rem;
+            border-radius: 8px;
+            font-weight: 600;
+        }
+        .nav-links .btn-signup:hover { background: #5558e6; }
+
+        /* Hero */
+        .hero {
+            text-align: center;
+            padding: 6rem 2rem 4rem;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .hero h1 {
+            font-size: 3rem;
+            font-weight: 800;
+            color: #fff;
+            line-height: 1.15;
+            margin-bottom: 1.5rem;
+        }
+        .hero h1 em {
+            font-style: normal;
+            background: linear-gradient(135deg, #6366f1, #a78bfa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .hero p {
+            font-size: 1.2rem;
+            color: #888;
+            line-height: 1.7;
+            margin-bottom: 2.5rem;
+        }
+
+        /* Upload CTA */
+        .upload-cta {
+            background: #15151e;
+            border: 2px dashed #333;
+            border-radius: 16px;
+            padding: 3rem 2rem;
+            max-width: 600px;
+            margin: 0 auto 4rem;
+            cursor: pointer;
+            transition: border-color 0.2s, background 0.2s;
+        }
+        .upload-cta:hover {
+            border-color: #6366f1;
+            background: #1a1a28;
+        }
+        .upload-cta .icon { font-size: 3rem; margin-bottom: 1rem; }
+        .upload-cta h3 { color: #fff; font-size: 1.25rem; margin-bottom: 0.5rem; }
+        .upload-cta p { color: #666; font-size: 0.95rem; }
+
+        /* Pricing */
+        .pricing {
+            padding: 4rem 2rem;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        .pricing h2 {
+            text-align: center;
+            font-size: 2rem;
+            color: #fff;
+            margin-bottom: 0.75rem;
+        }
+        .pricing .subtitle {
+            text-align: center;
+            color: #888;
+            margin-bottom: 3rem;
+        }
+        .pricing-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 1.5rem;
+        }
+        .plan-card {
+            background: #15151e;
+            border: 1px solid #222;
+            border-radius: 16px;
+            padding: 2rem;
+            position: relative;
+        }
+        .plan-card.featured {
+            border-color: #6366f1;
+            box-shadow: 0 0 30px rgba(99, 102, 241, 0.1);
+        }
+        .plan-card .badge {
+            position: absolute;
+            top: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #6366f1;
+            color: #fff;
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+        }
+        .plan-card h3 { color: #fff; font-size: 1.25rem; margin-bottom: 0.5rem; }
+        .plan-card .price {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 0.25rem;
+        }
+        .plan-card .price span { font-size: 1rem; color: #888; font-weight: 400; }
+        .plan-card .features {
+            list-style: none;
+            margin: 1.5rem 0;
+        }
+        .plan-card .features li {
+            padding: 0.4rem 0;
+            color: #aaa;
+            font-size: 0.95rem;
+        }
+        .plan-card .features li::before {
+            content: "✓ ";
+            color: #22c55e;
+            font-weight: 700;
+        }
+        .plan-card .cta-btn {
+            display: block;
+            text-align: center;
+            background: #6366f1;
+            color: #fff;
+            padding: 0.75rem;
+            border-radius: 10px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+        .plan-card .cta-btn:hover { background: #5558e6; }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 3rem 2rem;
+            color: #555;
+            font-size: 0.85rem;
+        }
+
+        @media (max-width: 600px) {
+            .hero h1 { font-size: 2rem; }
+            .hero { padding: 3rem 1rem 2rem; }
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <div class="logo"><span>flip</span>book</div>
+        <div class="nav-links">
+            <a href="#pricing">Pricing</a>
+            <a href="/login">Log in</a>
+            <a href="/signup" class="btn-signup">Sign up</a>
+        </div>
+    </nav>
+
+    <section class="hero">
+        <h1>Turn presentations into <em>interactive flipbooks</em></h1>
+        <p>Upload a PowerPoint or PDF and get a beautiful, embeddable
+           page-flip experience in seconds. Share it with a link or embed
+           it on any website.</p>
+    </section>
+
+    <div class="upload-cta" onclick="window.location.href='/signup'">
+        <div style="text-align:center">
+            <div class="icon">📄</div>
+            <h3>Upload your first presentation</h3>
+            <p>Drag &amp; drop a .pptx or .pdf — sign up to get started</p>
+        </div>
+    </div>
+
+    <section class="pricing" id="pricing">
+        <h2>Simple, transparent pricing</h2>
+        <p class="subtitle">No hidden fees. Upgrade or cancel anytime.</p>
+        <div class="pricing-grid">
+            <div class="plan-card">
+                <h3>Basic</h3>
+                <div class="price">$9.99<span>/mo</span></div>
+                <ul class="features">
+                    <li>Up to 50 pages of content</li>
+                    <li>Unlimited flipbooks</li>
+                    <li>Custom viewer links</li>
+                    <li>Embeddable on any site</li>
+                    <li>SEO-optimized pages</li>
+                </ul>
+                <a href="/signup" class="cta-btn">Get started</a>
+            </div>
+            <div class="plan-card featured">
+                <div class="badge">Most Popular</div>
+                <h3>Professional</h3>
+                <div class="price">$29.99<span>/mo</span></div>
+                <ul class="features">
+                    <li>Up to 1,000 pages of content</li>
+                    <li>Unlimited flipbooks</li>
+                    <li>Custom viewer links</li>
+                    <li>Embeddable on any site</li>
+                    <li>SEO-optimized pages</li>
+                    <li>Priority conversion</li>
+                </ul>
+                <a href="/signup" class="cta-btn">Get started</a>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        &copy; {{.Year}} Flipbook. All rights reserved.
+    </footer>
+</body>
+</html>
+{{end}}

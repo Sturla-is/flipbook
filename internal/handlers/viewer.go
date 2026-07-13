@@ -10,6 +10,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jonradoff/flipbook/internal/database"
 	"github.com/jonradoff/flipbook/internal/models"
+	"github.com/jonradoff/flipbook/internal/saas"
 	"github.com/jonradoff/flipbook/internal/storage"
 )
 
@@ -18,10 +19,16 @@ type ViewerHandler struct {
 	storage *storage.Storage
 	tmpl    *template.Template
 	baseURL string
+	billing *saas.BillingChecker // nil when SaaS mode is disabled
 }
 
 func NewViewerHandler(db *database.DB, store *storage.Storage, tmpl *template.Template, baseURL string) *ViewerHandler {
 	return &ViewerHandler{db: db, storage: store, tmpl: tmpl, baseURL: baseURL}
+}
+
+// SetBilling enables billing status checks for tenant-owned flipbooks.
+func (h *ViewerHandler) SetBilling(bc *saas.BillingChecker) {
+	h.billing = bc
 }
 
 func (h *ViewerHandler) View(w http.ResponseWriter, r *http.Request) {
@@ -30,6 +37,17 @@ func (h *ViewerHandler) View(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, "Flipbook not found", 404)
 		return
+	}
+
+	// Billing check for tenant-owned flipbooks (legacy admin flipbooks always served)
+	if fb.TenantID != "" && h.billing != nil {
+		if !h.billing.TenantCanServe(r.Context(), fb.TenantID) {
+			h.tmpl.ExecuteTemplate(w, "unavailable", map[string]interface{}{
+				"Flipbook": fb,
+				"BaseURL":  h.baseURL,
+			})
+			return
+		}
 	}
 
 	switch fb.Status {

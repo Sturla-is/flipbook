@@ -9,18 +9,28 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// SaaSConfig holds multi-tenant SaaS mode settings. When Enabled is false,
+// flipbook runs in single-tenant admin-only mode (the original behavior).
+type SaaSConfig struct {
+	Enabled         bool   `yaml:"enabled"`
+	JWTSecret       string `yaml:"jwt_access_secret"`
+	GracePeriodDays int    `yaml:"grace_period_days"`
+	FrontendDir     string `yaml:"frontend_dir"`
+}
+
 type Config struct {
-	Port           string `yaml:"port"`
-	BaseURL        string `yaml:"base_url"`
-	DataDir        string `yaml:"data_dir"`
-	MongoURI       string `yaml:"mongo_uri"`
-	MongoDB        string `yaml:"mongo_db"`
-	LibreOfficeBin string `yaml:"libreoffice_bin"`
-	MaxUploadSize  int64  `yaml:"max_upload_size"`
-	ConversionDPI  int    `yaml:"conversion_dpi"`
-	ThumbnailDPI   int    `yaml:"thumbnail_dpi"`
-	SessionSecret  string `yaml:"session_secret"`
-	APIKey         string `yaml:"api_key"`
+	Port           string     `yaml:"port"`
+	BaseURL        string     `yaml:"base_url"`
+	DataDir        string     `yaml:"data_dir"`
+	MongoURI       string     `yaml:"mongo_uri"`
+	MongoDB        string     `yaml:"mongo_db"`
+	LibreOfficeBin string     `yaml:"libreoffice_bin"`
+	MaxUploadSize  int64      `yaml:"max_upload_size"`
+	ConversionDPI  int        `yaml:"conversion_dpi"`
+	ThumbnailDPI   int        `yaml:"thumbnail_dpi"`
+	SessionSecret  string     `yaml:"session_secret"`
+	APIKey         string     `yaml:"api_key"`
+	SaaS           SaaSConfig `yaml:"saas"`
 }
 
 func Load() *Config {
@@ -30,7 +40,7 @@ func Load() *Config {
 		DataDir:       "./data",
 		MongoURI:      "",
 		MongoDB:       "flipbook",
-		MaxUploadSize: 104857600, // 100MB
+		MaxUploadSize: 524288000, // 500MB
 		ConversionDPI: 300,
 		ThumbnailDPI:  72,
 	}
@@ -90,6 +100,27 @@ func Load() *Config {
 	}
 	if v := os.Getenv("FLIPBOOK_API_KEY"); v != "" {
 		cfg.APIKey = v
+	}
+
+	// SaaS mode overrides
+	if v := os.Getenv("FLIPBOOK_SAAS_ENABLED"); v == "true" || v == "1" {
+		cfg.SaaS.Enabled = true
+	}
+	if v := os.Getenv("FLIPBOOK_JWT_ACCESS_SECRET"); v != "" {
+		cfg.SaaS.JWTSecret = v
+	}
+	if v := os.Getenv("FLIPBOOK_GRACE_PERIOD_DAYS"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			cfg.SaaS.GracePeriodDays = n
+		}
+	}
+	if v := os.Getenv("FLIPBOOK_FRONTEND_DIR"); v != "" {
+		cfg.SaaS.FrontendDir = v
+	}
+
+	// SaaS defaults
+	if cfg.SaaS.GracePeriodDays == 0 {
+		cfg.SaaS.GracePeriodDays = 7
 	}
 
 	if cfg.LibreOfficeBin == "" {

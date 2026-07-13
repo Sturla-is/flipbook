@@ -10,6 +10,7 @@ import (
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/mongo/readpref"
 )
 
 // flipbookDoc is the MongoDB document shape for flipbooks.
@@ -27,6 +28,7 @@ type flipbookDoc struct {
 	PageHeight   int        `bson:"page_height"`
 	IsPublic     bool       `bson:"is_public"`
 	GridFSFileID string     `bson:"gridfs_file_id,omitempty"`
+	TenantID     string     `bson:"tenant_id,omitempty"`
 	CreatedAt    time.Time  `bson:"created_at"`
 	UpdatedAt    time.Time  `bson:"updated_at"`
 	ConvertedAt  *time.Time `bson:"converted_at,omitempty"`
@@ -55,6 +57,7 @@ func docToModel(d *flipbookDoc) *models.Flipbook {
 		PageHeight:   d.PageHeight,
 		IsPublic:     d.IsPublic,
 		GridFSFileID: d.GridFSFileID,
+		TenantID:     d.TenantID,
 		CreatedAt:    d.CreatedAt,
 		UpdatedAt:    d.UpdatedAt,
 		ConvertedAt:  d.ConvertedAt,
@@ -74,6 +77,7 @@ type sessionDoc struct {
 
 type DB struct {
 	client    *mongo.Client
+	database  *mongo.Database
 	flipbooks *mongo.Collection
 	views     *mongo.Collection
 	settings  *mongo.Collection
@@ -94,6 +98,7 @@ func Open(ctx context.Context, uri, dbName string) (*DB, error) {
 	db := client.Database(dbName)
 	d := &DB{
 		client:    client,
+		database:  db,
 		flipbooks: db.Collection("flipbooks"),
 		views:     db.Collection("views"),
 		settings:  db.Collection("settings"),
@@ -114,6 +119,7 @@ func (d *DB) ensureIndexes(ctx context.Context) {
 		{Keys: bson.D{{Key: "slug", Value: 1}}, Options: options.Index().SetUnique(true)},
 		{Keys: bson.D{{Key: "status", Value: 1}}},
 		{Keys: bson.D{{Key: "created_at", Value: -1}}},
+		{Keys: bson.D{{Key: "tenant_id", Value: 1}, {Key: "created_at", Value: -1}}},
 	})
 	d.views.Indexes().CreateOne(ctx, mongo.IndexModel{
 		Keys: bson.D{{Key: "flipbook_id", Value: 1}},
@@ -138,6 +144,7 @@ func (d *DB) CreateFlipbook(fb *models.Flipbook) error {
 		FileSize:    fb.FileSize,
 		Status:      fb.Status,
 		IsPublic:    true,
+		TenantID:    fb.TenantID,
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}
@@ -370,4 +377,51 @@ func (d *DB) SetGridFSFileID(id, gridfsFileID string) error {
 		},
 	})
 	return err
+}
+
+// Database returns the raw mongo.Database for use by the SaaS layer.
+func (d *DB) Database() *mongo.Database {
+	return d.database
+}
+
+// Ping verifies the driver can reach a MongoDB primary. Used by the /readyz
+// readiness probe so Fly can recycle a machine whose driver topology has
+// wedged into ReplicaSetNoPrimary (see the 2026-07 outage) instead of letting
+// it serve 30s-timeout errors indefinitely.
+func (d *DB) Ping(ctx context.Context) error {
+	return d.client.Ping(ctx, readpref.Primary())
+}
+
+// --- Tenant-scoped queries (SaaS mode) ---
+
+// ListFlipbooksByTenant returns flipbooks owned by a specific tenant.
+func (d *DB) ListFlipbooksByTenant(tenantID string) ([]*models.Flipbook, error) {
+	filter := bson.M{"tenant_id": tenantID, "deleted_at": nil}
+	opts := options.Find().SetSort(bson.D{{Key: "created_at", Value: -1}})
+	cursor, err := d.flipbooks.Find(context.Background(), filter, opts)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(context.Background())
+
+	var flipbooks []*models.Flipbook
+	for cursor.Next(context.Background()) {
+		var doc flipbookDoc
+		if err := cursor.Decode(&doc); err != nil {
+			return nil, err
+		}
+		flipbooks = append(flipbooks, docToModel(&doc))
+	}
+	return flipbooks, nil
+}
+
+// GetFlipbookForTenant returns a flipbook only if it belongs to the given tenant.
+func (d *DB) GetFlipbookForTenant(id, tenantID string) (*models.Flipbook, error) {
+	var doc flipbookDoc
+	filter := bson.M{"_id": id, "tenant_id": tenantID, "deleted_at": nil}
+	err := d.flipbooks.FindOne(context.Background(), filter).Decode(&doc)
+	if err != nil {
+		return nil, err
+	}
+	return docToModel(&doc), nil
 }

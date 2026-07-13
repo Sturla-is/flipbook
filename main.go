@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -20,6 +21,7 @@ import (
 	"github.com/jonradoff/flipbook/internal/database"
 	"github.com/jonradoff/flipbook/internal/handlers"
 	"github.com/jonradoff/flipbook/internal/mcp"
+	"github.com/jonradoff/flipbook/internal/saas"
 	"github.com/jonradoff/flipbook/internal/storage"
 	"github.com/jonradoff/flipbook/internal/worker"
 	"golang.org/x/crypto/bcrypt"
@@ -234,19 +236,10 @@ func runServer() {
 	// Parse templates
 	tmpl := parseTemplates()
 
-	// Initialize auth
-	a := auth.New(db, cfg.SessionSecret, tmpl)
-
-	// Warn if no password is set
-	if !a.HasPassword() {
-		log.Println("WARNING: No admin password set. Run './flipbook set-password' to secure the admin area.")
-	}
-
-	// Setup handlers
-	adminH := handlers.NewAdminHandler(db, store, w, tmpl, cfg.BaseURL)
+	// Setup handlers common to both modes
 	viewerH := handlers.NewViewerHandler(db, store, tmpl, cfg.BaseURL)
 	embedH := handlers.NewEmbedHandler(db, store, tmpl, cfg.BaseURL)
-	apiH := handlers.NewAPIHandler(db, store, w, cfg.BaseURL)
+	apiH := handlers.NewAPIHandler(db, store, w, cfg.BaseURL, cfg.MaxUploadSize)
 
 	// Setup router
 	r := chi.NewRouter()
@@ -272,6 +265,78 @@ func runServer() {
 		http.ServeFile(rw, req, filepath.Join(cfg.DataDir, "flipbooks", id, "thumbs", fname))
 	})
 
+	// Readiness probe: verifies a MongoDB primary is reachable so Fly's health
+	// check can recycle a machine whose driver has wedged (unlike /health, which
+	// is a static liveness check). Fails fast (3s) rather than the 30s default.
+	r.Get("/readyz", func(rw http.ResponseWriter, req *http.Request) {
+		ctx, cancel := context.WithTimeout(req.Context(), 3*time.Second)
+		defer cancel()
+		if err := db.Ping(ctx); err != nil {
+			http.Error(rw, "db unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		rw.WriteHeader(http.StatusOK)
+		rw.Write([]byte("ready"))
+	})
+
+	// Status endpoint (always accessible for upload progress tracking)
+	r.Get("/api/flipbooks/{id}/status", apiH.FlipbookStatus)
+
+	// Public viewers
+	r.Get("/v/{slug}", viewerH.View)
+	r.Get("/embed/{slug}", embedH.Embed)
+
+	if cfg.SaaS.Enabled {
+		setupSaaSMode(r, cfg, db, store, w, tmpl, viewerH, embedH)
+	} else {
+		setupAdminMode(r, cfg, db, store, w, tmpl, apiH)
+	}
+
+	// Start server
+	srv := &http.Server{
+		Addr:              ":" + cfg.Port,
+		Handler:           r,
+		ReadTimeout:       5 * time.Minute,
+		WriteTimeout:      10 * time.Minute,
+		IdleTimeout:       120 * time.Second,
+		ReadHeaderTimeout: 10 * time.Second,
+		MaxHeaderBytes:    1 << 20, // 1MB
+	}
+
+	mode := "admin-only"
+	if cfg.SaaS.Enabled {
+		mode = "SaaS multi-tenant"
+	}
+	log.Printf("Flipbook server starting on :%s (%s mode)", cfg.Port, mode)
+	log.Printf("Base URL: %s", cfg.BaseURL)
+	log.Printf("LibreOffice: %s", cfg.LibreOfficeBin)
+
+	// Graceful shutdown
+	go func() {
+		sigCh := make(chan os.Signal, 1)
+		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+		<-sigCh
+		log.Println("Shutting down...")
+		cancel()
+		srv.Shutdown(context.Background())
+	}()
+
+	if err := srv.ListenAndServe(); err != http.ErrServerClosed {
+		log.Fatal(err)
+	}
+}
+
+// setupAdminMode configures routes for the original single-tenant admin mode.
+func setupAdminMode(r chi.Router, cfg *config.Config, db *database.DB, store *storage.Storage, w *worker.Worker, tmpl *template.Template, apiH *handlers.APIHandler) {
+	// Initialize auth
+	a := auth.New(db, cfg.SessionSecret, tmpl)
+
+	if !a.HasPassword() {
+		log.Println("WARNING: No admin password set. Run './flipbook set-password' to secure the admin area.")
+	}
+
+	adminH := handlers.NewAdminHandler(db, store, w, tmpl, cfg.BaseURL, cfg.MaxUploadSize)
+
 	// Auth routes (public)
 	r.Get("/login", a.LoginPage)
 	r.Post("/login", a.LoginSubmit)
@@ -289,7 +354,7 @@ func runServer() {
 		r.Post("/admin/flipbooks/{id}/settings", adminH.Settings)
 	})
 
-	// API routes (protected by API key when set)
+	// API routes (protected by API key)
 	r.Group(func(r chi.Router) {
 		r.Use(apiAuth(cfg.APIKey))
 		r.Get("/api/flipbooks", apiH.ListFlipbooks)
@@ -299,47 +364,132 @@ func runServer() {
 		r.Delete("/api/flipbooks/{id}", apiH.DeleteFlipbook)
 	})
 
-	// Status endpoint (always accessible for upload progress tracking)
-	r.Get("/api/flipbooks/{id}/status", apiH.FlipbookStatus)
-
-	// Public viewers
-	r.Get("/v/{slug}", viewerH.View)
-	r.Get("/embed/{slug}", embedH.Embed)
-
 	// Root redirect
 	r.Get("/", func(rw http.ResponseWriter, req *http.Request) {
 		http.Redirect(rw, req, "/admin", http.StatusFound)
 	})
 
-	// Start server
-	srv := &http.Server{
-		Addr:              ":" + cfg.Port,
-		Handler:           r,
-		ReadTimeout:       30 * time.Second,
-		WriteTimeout:      120 * time.Second,
-		IdleTimeout:       120 * time.Second,
-		ReadHeaderTimeout: 10 * time.Second,
-		MaxHeaderBytes:    1 << 20, // 1MB
-	}
-
-	log.Printf("Flipbook server starting on :%s", cfg.Port)
 	log.Printf("Admin UI:  %s/admin", cfg.BaseURL)
 	log.Printf("API key:   %s", cfg.APIKey)
-	log.Printf("LibreOffice: %s", cfg.LibreOfficeBin)
+}
 
-	// Graceful shutdown
-	go func() {
-		sigCh := make(chan os.Signal, 1)
-		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-		<-sigCh
-		log.Println("Shutting down...")
-		cancel()
-		srv.Shutdown(context.Background())
-	}()
-
-	if err := srv.ListenAndServe(); err != http.ErrServerClosed {
-		log.Fatal(err)
+// setupSaaSMode configures routes for multi-tenant SaaS mode with LastSaaS integration.
+func setupSaaSMode(r chi.Router, cfg *config.Config, db *database.DB, store *storage.Storage, w *worker.Worker, tmpl *template.Template, viewerH *handlers.ViewerHandler, embedH *handlers.EmbedHandler) {
+	if cfg.SaaS.JWTSecret == "" {
+		log.Fatal("SaaS mode requires FLIPBOOK_JWT_ACCESS_SECRET to be set")
 	}
+
+	// Initialize SaaS services
+	mongoDB := db.Database()
+	jwtValidator := saas.NewJWTValidator(cfg.SaaS.JWTSecret)
+	saasMiddleware := saas.NewMiddleware(jwtValidator, mongoDB)
+	billingChecker := saas.NewBillingChecker(mongoDB, cfg.SaaS.GracePeriodDays)
+
+	// Enable billing checks on viewers
+	viewerH.SetBilling(billingChecker)
+	embedH.SetBilling(billingChecker)
+
+	// SaaS API handler
+	saasAPI := handlers.NewSaaSAPIHandler(db, store, w, billingChecker, cfg.BaseURL, cfg.MaxUploadSize)
+
+	// Tenant-scoped API routes
+	r.Route("/api/saas", func(r chi.Router) {
+		r.Use(saasMiddleware.RequireJWT)
+		r.Use(saasMiddleware.RequireTenant)
+		r.Get("/flipbooks", saasAPI.ListFlipbooks)
+		r.Post("/flipbooks", saasAPI.Upload)
+		r.Get("/flipbooks/{id}", saasAPI.GetFlipbook)
+		r.Put("/flipbooks/{id}", saasAPI.UpdateFlipbook)
+		r.Delete("/flipbooks/{id}", saasAPI.DeleteFlipbook)
+		r.Get("/usage", saasAPI.Usage)
+	})
+
+	// Admin API routes (protected by API key, for MCP / admin tooling)
+	// These create legacy flipbooks with no tenant association.
+	adminAPIH := handlers.NewAPIHandler(db, store, w, cfg.BaseURL, cfg.MaxUploadSize)
+	r.Group(func(r chi.Router) {
+		r.Use(apiAuth(cfg.APIKey))
+		r.Get("/api/flipbooks", adminAPIH.ListFlipbooks)
+		r.Post("/api/flipbooks", adminAPIH.UploadFlipbook)
+		r.Post("/api/flipbooks/import", adminAPIH.ImportURL)
+		r.Get("/api/flipbooks/{id}", adminAPIH.GetFlipbook)
+		r.Delete("/api/flipbooks/{id}", adminAPIH.DeleteFlipbook)
+	})
+
+	// Serve SPA frontend if configured (for auth/billing/dashboard pages)
+	if cfg.SaaS.FrontendDir != "" {
+		log.Printf("Serving SaaS frontend from %s", cfg.SaaS.FrontendDir)
+		spa := spaHandler{staticPath: cfg.SaaS.FrontendDir, indexPath: "index.html", appName: os.Getenv("APP_NAME")}
+		// Mount SPA for all frontend routes (auth, dashboard, etc.)
+		// These must come after API routes and specific handlers
+		spaRoutes := []string{
+			"/",
+			"/setup",
+			"/login", "/signup", "/verify-email", "/forgot-password", "/reset-password",
+			"/auth/callback", "/dashboard", "/team", "/plan", "/buy-credits",
+			"/billing/*", "/settings", "/messages", "/test-entitlements",
+			"/flipbooks", "/flipbooks/*",
+			"/last", "/last/*",
+			"/p/*",
+		}
+		for _, route := range spaRoutes {
+			r.Handle(route, spa)
+		}
+		// Static assets from the SPA build (JS, CSS, etc.)
+		r.Handle("/assets/*", http.StripPrefix("", http.FileServer(http.Dir(cfg.SaaS.FrontendDir))))
+	} else {
+		// Fallback landing page when no SPA frontend is configured
+		r.Get("/", func(rw http.ResponseWriter, req *http.Request) {
+			tmpl.ExecuteTemplate(rw, "landing", map[string]interface{}{
+				"Year": time.Now().Year(),
+			})
+		})
+	}
+
+	log.Printf("SaaS mode enabled (grace period: %d days)", cfg.SaaS.GracePeriodDays)
+	log.Printf("API key (admin): %s", cfg.APIKey)
+}
+
+// spaHandler serves a single-page application. Existing files are served
+// directly; all other paths get index.html so the SPA router handles them.
+// When serving index.html it substitutes the {{APP_NAME}} placeholder so the
+// browser tab shows the real brand immediately (before JS loads branding),
+// rather than a literal "{{APP_NAME}}".
+type spaHandler struct {
+	staticPath string
+	indexPath  string
+	appName    string
+}
+
+func (h spaHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	path := filepath.Join(h.staticPath, filepath.Clean(r.URL.Path))
+	fi, err := os.Stat(path)
+	if os.IsNotExist(err) || (err == nil && fi.IsDir()) {
+		w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate")
+		h.serveIndex(w)
+		return
+	}
+	if err != nil {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+	http.FileServer(http.Dir(h.staticPath)).ServeHTTP(w, r)
+}
+
+// serveIndex reads index.html and replaces the {{APP_NAME}} placeholder.
+func (h spaHandler) serveIndex(w http.ResponseWriter) {
+	data, err := os.ReadFile(filepath.Join(h.staticPath, h.indexPath))
+	if err != nil {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+	appName := h.appName
+	if appName == "" {
+		appName = "App"
+	}
+	html := strings.Replace(string(data), "{{APP_NAME}}", appName, 1)
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Write([]byte(html))
 }
 
 // securityHeaders adds standard security headers to all responses.

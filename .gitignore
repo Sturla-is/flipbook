@@ -15,3 +15,14 @@ config.prod.yaml
 # IDE
 .vscode/
 .idea/
+
+# LastSaaS fork (cloned from GitHub, not committed)
+lastsaas/
+
+# Frontend build artifacts
+.frontend-build/
+frontend-dist/
+frontend-overlay/node_modules/
+
+# One-off bootstrap script — contains live DB credentials, never commit
+scripts/bootstrap.js

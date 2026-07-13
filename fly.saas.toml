@@ -1,0 +1,48 @@
+app = "flipbook-metavert"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile.saas"
+
+[env]
+  # Flipbook
+  FLIPBOOK_BASE_URL = "https://flipbook.metavert.io"
+  FLIPBOOK_DATA_DIR = "/data"
+  FLIPBOOK_MONGO_DB = "flipbook"
+  FLIPBOOK_SAAS_ENABLED = "true"
+  FLIPBOOK_FRONTEND_DIR = "/app/frontend-dist"
+  FLIPBOOK_GRACE_PERIOD_DAYS = "7"
+  # LastSaaS
+  LASTSAAS_ENV = "prod"
+  LASTSAAS_CONFIG_DIR = "/app/lastsaas-config"
+  DATABASE_NAME = "flipbook"
+  FRONTEND_STATIC_DIR = "/dev/null"
+  SERVER_PORT = "8091"
+  FRONTEND_URL = "https://flipbook.metavert.io"
+  APP_NAME = "Flipbook"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 1
+
+  # Readiness check: /readyz pings a MongoDB primary and returns 503 if the
+  # driver has wedged (ReplicaSetNoPrimary). A failing check makes Fly recycle
+  # the machine automatically, so a wedged Mongo driver self-heals instead of
+  # serving 30s-timeout errors indefinitely (root cause of the 2026-07 outage).
+  [[http_service.checks]]
+    interval = "15s"
+    timeout = "5s"
+    grace_period = "45s"
+    method = "GET"
+    path = "/readyz"
+
+[[vm]]
+  size = "shared-cpu-2x"
+  memory = "2gb"
+
+[mounts]
+  source = "flipbook_data"
+  destination = "/data"

@@ -22,15 +22,16 @@ import (
 )
 
 type AdminHandler struct {
-	db      *database.DB
-	storage *storage.Storage
-	worker  *worker.Worker
-	tmpl    *template.Template
-	baseURL string
+	db            *database.DB
+	storage       *storage.Storage
+	worker        *worker.Worker
+	tmpl          *template.Template
+	baseURL       string
+	maxUploadSize int64
 }
 
-func NewAdminHandler(db *database.DB, store *storage.Storage, w *worker.Worker, tmpl *template.Template, baseURL string) *AdminHandler {
-	return &AdminHandler{db: db, storage: store, worker: w, tmpl: tmpl, baseURL: baseURL}
+func NewAdminHandler(db *database.DB, store *storage.Storage, w *worker.Worker, tmpl *template.Template, baseURL string, maxUploadSize int64) *AdminHandler {
+	return &AdminHandler{db: db, storage: store, worker: w, tmpl: tmpl, baseURL: baseURL, maxUploadSize: maxUploadSize}
 }
 
 func (h *AdminHandler) Index(w http.ResponseWriter, r *http.Request) {
@@ -59,10 +60,10 @@ func (h *AdminHandler) UploadForm(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AdminHandler) Upload(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, 100<<20) // 100MB
+	r.Body = http.MaxBytesReader(w, r.Body, h.maxUploadSize)
 
-	if err := r.ParseMultipartForm(100 << 20); err != nil {
-		http.Error(w, "File too large (max 100MB)", 400)
+	if err := r.ParseMultipartForm(h.maxUploadSize); err != nil {
+		http.Error(w, fmt.Sprintf("File too large (max %dMB)", h.maxUploadSize/(1<<20)), 400)
 		return
 	}
 

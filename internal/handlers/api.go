@@ -20,14 +20,15 @@ import (
 )
 
 type APIHandler struct {
-	db      *database.DB
-	storage *storage.Storage
-	worker  *worker.Worker
-	baseURL string
+	db            *database.DB
+	storage       *storage.Storage
+	worker        *worker.Worker
+	baseURL       string
+	maxUploadSize int64
 }
 
-func NewAPIHandler(db *database.DB, store *storage.Storage, w *worker.Worker, baseURL string) *APIHandler {
-	return &APIHandler{db: db, storage: store, worker: w, baseURL: baseURL}
+func NewAPIHandler(db *database.DB, store *storage.Storage, w *worker.Worker, baseURL string, maxUploadSize int64) *APIHandler {
+	return &APIHandler{db: db, storage: store, worker: w, baseURL: baseURL, maxUploadSize: maxUploadSize}
 }
 
 func (h *APIHandler) ListFlipbooks(w http.ResponseWriter, r *http.Request) {
@@ -96,10 +97,10 @@ func (h *APIHandler) GetFlipbook(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *APIHandler) UploadFlipbook(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, 100<<20)
+	r.Body = http.MaxBytesReader(w, r.Body, h.maxUploadSize)
 
-	if err := r.ParseMultipartForm(100 << 20); err != nil {
-		jsonError(w, "File too large (max 100MB)", 400)
+	if err := r.ParseMultipartForm(h.maxUploadSize); err != nil {
+		jsonError(w, fmt.Sprintf("File too large (max %dMB)", h.maxUploadSize/(1<<20)), 400)
 		return
 	}
 
