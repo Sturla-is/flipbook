@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/jonradoff/flipbook/internal/database"
+	"github.com/metavert-io/flipbook/internal/database"
 	"golang.org/x/crypto/bcrypt"
 )
 

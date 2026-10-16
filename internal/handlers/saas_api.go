@@ -12,11 +12,11 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
-	"github.com/jonradoff/flipbook/internal/database"
-	"github.com/jonradoff/flipbook/internal/models"
-	"github.com/jonradoff/flipbook/internal/saas"
-	"github.com/jonradoff/flipbook/internal/storage"
-	"github.com/jonradoff/flipbook/internal/worker"
+	"github.com/metavert-io/flipbook/internal/database"
+	"github.com/metavert-io/flipbook/internal/models"
+	"github.com/metavert-io/flipbook/internal/saas"
+	"github.com/metavert-io/flipbook/internal/storage"
+	"github.com/metavert-io/flipbook/internal/worker"
 )
 
 // SaaSAPIHandler handles tenant-scoped flipbook operations for SaaS mode.

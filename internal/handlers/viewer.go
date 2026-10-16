@@ -8,10 +8,10 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/jonradoff/flipbook/internal/database"
-	"github.com/jonradoff/flipbook/internal/models"
-	"github.com/jonradoff/flipbook/internal/saas"
-	"github.com/jonradoff/flipbook/internal/storage"
+	"github.com/metavert-io/flipbook/internal/database"
+	"github.com/metavert-io/flipbook/internal/models"
+	"github.com/metavert-io/flipbook/internal/saas"
+	"github.com/metavert-io/flipbook/internal/storage"
 )
 
 type ViewerHandler struct {

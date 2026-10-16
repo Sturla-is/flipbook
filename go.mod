@@ -1,4 +1,4 @@
-module github.com/jonradoff/flipbook
+module github.com/metavert-io/flipbook
 
 go 1.25.5
 

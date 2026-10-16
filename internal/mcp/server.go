@@ -13,7 +13,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/jonradoff/flipbook/internal/config"
+	"github.com/metavert-io/flipbook/internal/config"
 )
 
 // JSON-RPC 2.0 types
