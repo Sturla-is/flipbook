@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jonradoff/flipbook/internal/integrations"
-	"github.com/jonradoff/flipbook/internal/models"
+	"github.com/metavert-io/flipbook/internal/integrations"
+	"github.com/metavert-io/flipbook/internal/models"
 )
 
 func TestWebhookSecretEncryptionAndResolver(t *testing.T) {

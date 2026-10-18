@@ -8,10 +8,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jonradoff/flipbook/internal/config"
-	"github.com/jonradoff/flipbook/internal/models"
-	"github.com/jonradoff/flipbook/internal/storage"
-	"github.com/jonradoff/flipbook/internal/worker"
+	"github.com/metavert-io/flipbook/internal/config"
+	"github.com/metavert-io/flipbook/internal/models"
+	"github.com/metavert-io/flipbook/internal/storage"
+	"github.com/metavert-io/flipbook/internal/worker"
 )
 
 const (

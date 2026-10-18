@@ -11,10 +11,10 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/jonradoff/flipbook/internal/analytics"
-	"github.com/jonradoff/flipbook/internal/auth"
-	"github.com/jonradoff/flipbook/internal/database"
-	"github.com/jonradoff/flipbook/internal/models"
+	"github.com/metavert-io/flipbook/internal/analytics"
+	"github.com/metavert-io/flipbook/internal/auth"
+	"github.com/metavert-io/flipbook/internal/database"
+	"github.com/metavert-io/flipbook/internal/models"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 

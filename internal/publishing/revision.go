@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/jonradoff/flipbook/internal/models"
+	"github.com/metavert-io/flipbook/internal/models"
 )
 
 func (s *Service) ActivateRevision(ctx context.Context, actor Actor, workspaceID, flipbookID, revisionID string) (*ActivationResult, error) {

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jonradoff/flipbook/internal/engagement"
+	"github.com/metavert-io/flipbook/internal/engagement"
 )
 
 func TestDecodeJSONBodyContract(t *testing.T) {

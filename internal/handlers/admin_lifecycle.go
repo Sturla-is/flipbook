@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/jonradoff/flipbook/internal/models"
-	"github.com/jonradoff/flipbook/internal/publishing"
+	"github.com/metavert-io/flipbook/internal/models"
+	"github.com/metavert-io/flipbook/internal/publishing"
 )
 
 func (h *AdminHandler) lifecycleError(w http.ResponseWriter, r *http.Request, actor adminActor, id string, err error) {

@@ -14,7 +14,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/jonradoff/flipbook/internal/models"
+	"github.com/metavert-io/flipbook/internal/models"
 )
 
 func (w *Worker) webhookLoop(ctx context.Context) {

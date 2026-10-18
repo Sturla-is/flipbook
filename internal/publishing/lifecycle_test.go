@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jonradoff/flipbook/internal/models"
+	"github.com/metavert-io/flipbook/internal/models"
 )
 
 func addMembership(store *fakeStore, workspaceID, userID string, role models.Role) {

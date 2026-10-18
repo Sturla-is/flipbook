@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/jonradoff/flipbook/internal/database"
+	"github.com/metavert-io/flipbook/internal/database"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 

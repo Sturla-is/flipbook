@@ -4,9 +4,10 @@ import (
 	"html/template"
 	"net/http"
 
-	"github.com/jonradoff/flipbook/internal/database"
-	"github.com/jonradoff/flipbook/internal/publishing"
-	"github.com/jonradoff/flipbook/internal/storage"
+	"github.com/metavert-io/flipbook/internal/database"
+	"github.com/metavert-io/flipbook/internal/publishing"
+	"github.com/metavert-io/flipbook/internal/saas"
+	"github.com/metavert-io/flipbook/internal/storage"
 )
 
 type EmbedHandler struct {
@@ -20,6 +21,11 @@ func NewEmbedHandler(db *database.DB, store *storage.Storage, tmpl *template.Tem
 func (h *EmbedHandler) SetPublishing(service *publishing.Service) *EmbedHandler {
 	h.viewer.SetPublishing(service)
 	return h
+}
+
+// SetBilling enables billing status checks for tenant-owned flipbooks.
+func (h *EmbedHandler) SetBilling(bc *saas.BillingChecker) {
+	h.viewer.SetBilling(bc)
 }
 
 func (h *EmbedHandler) Embed(w http.ResponseWriter, r *http.Request) {

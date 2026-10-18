@@ -14,12 +14,12 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/jonradoff/flipbook/internal/auth"
-	"github.com/jonradoff/flipbook/internal/database"
-	"github.com/jonradoff/flipbook/internal/models"
-	"github.com/jonradoff/flipbook/internal/publishing"
-	"github.com/jonradoff/flipbook/internal/storage"
-	"github.com/jonradoff/flipbook/internal/worker"
+	"github.com/metavert-io/flipbook/internal/auth"
+	"github.com/metavert-io/flipbook/internal/database"
+	"github.com/metavert-io/flipbook/internal/models"
+	"github.com/metavert-io/flipbook/internal/publishing"
+	"github.com/metavert-io/flipbook/internal/storage"
+	"github.com/metavert-io/flipbook/internal/worker"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
@@ -52,8 +52,8 @@ type AdminOptions struct {
 	Now        func() time.Time
 }
 
-func NewAdminHandler(db *database.DB, store *storage.Storage, w *worker.Worker, tmpl *template.Template, baseURL string) *AdminHandler {
-	return NewAdminHandlerWithOptions(db, store, w, tmpl, baseURL, AdminOptions{})
+func NewAdminHandler(db *database.DB, store *storage.Storage, w *worker.Worker, tmpl *template.Template, baseURL string, maxUploadSize int64) *AdminHandler {
+	return NewAdminHandlerWithOptions(db, store, w, tmpl, baseURL, AdminOptions{MaxBytes: maxUploadSize})
 }
 
 func NewAdminHandlerWithOptions(db *database.DB, store *storage.Storage, w *worker.Worker, tmpl *template.Template, baseURL string, options AdminOptions) *AdminHandler {

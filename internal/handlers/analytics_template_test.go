@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jonradoff/flipbook/internal/analytics"
+	"github.com/metavert-io/flipbook/internal/analytics"
 )
 
 func TestAnalyticsTemplateRenders(t *testing.T) {

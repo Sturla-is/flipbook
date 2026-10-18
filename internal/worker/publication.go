@@ -5,7 +5,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/jonradoff/flipbook/internal/models"
+	"github.com/metavert-io/flipbook/internal/models"
 )
 
 func (w *Worker) processPublication(ctx context.Context, job *models.Job, progress *progressState) error {

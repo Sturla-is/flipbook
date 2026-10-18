@@ -7,10 +7,10 @@ import (
 )
 
 type SitemapEntry struct {
-	Location    string
-	ModifiedAt  time.Time
-	ChangeFreq  string
-	Priority    string
+	Location   string
+	ModifiedAt time.Time
+	ChangeFreq string
+	Priority   string
 }
 
 type sitemapDocument struct {
@@ -54,8 +54,8 @@ type FeedItem struct {
 }
 
 type rssDocument struct {
-	XMLName xml.Name  `xml:"rss"`
-	Version string    `xml:"version,attr"`
+	XMLName xml.Name   `xml:"rss"`
+	Version string     `xml:"version,attr"`
 	Channel rssChannel `xml:"channel"`
 }
 
@@ -68,11 +68,11 @@ type rssChannel struct {
 }
 
 type rssItem struct {
-	Title       string `xml:"title"`
-	Link        string `xml:"link"`
-	Description string `xml:"description"`
+	Title       string  `xml:"title"`
+	Link        string  `xml:"link"`
+	Description string  `xml:"description"`
 	GUID        rssGUID `xml:"guid"`
-	PublishedAt string `xml:"pubDate,omitempty"`
+	PublishedAt string  `xml:"pubDate,omitempty"`
 }
 
 type rssGUID struct {

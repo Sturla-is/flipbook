@@ -9,7 +9,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/jonradoff/flipbook/internal/config"
+	"github.com/metavert-io/flipbook/internal/config"
 )
 
 // Main is the callable Issuu migration entry point. The final CLI wiring can

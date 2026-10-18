@@ -5,9 +5,9 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/jonradoff/flipbook/internal/auth"
-	"github.com/jonradoff/flipbook/internal/engagement"
-	"github.com/jonradoff/flipbook/internal/models"
+	"github.com/metavert-io/flipbook/internal/auth"
+	"github.com/metavert-io/flipbook/internal/engagement"
+	"github.com/metavert-io/flipbook/internal/models"
 )
 
 type adminLeadIntegrationsView struct {

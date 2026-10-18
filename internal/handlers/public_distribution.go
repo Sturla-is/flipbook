@@ -10,11 +10,11 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/jonradoff/flipbook/internal/auth"
-	"github.com/jonradoff/flipbook/internal/database"
-	"github.com/jonradoff/flipbook/internal/distribution"
-	"github.com/jonradoff/flipbook/internal/models"
-	"github.com/jonradoff/flipbook/internal/publishing"
+	"github.com/metavert-io/flipbook/internal/auth"
+	"github.com/metavert-io/flipbook/internal/database"
+	"github.com/metavert-io/flipbook/internal/distribution"
+	"github.com/metavert-io/flipbook/internal/models"
+	"github.com/metavert-io/flipbook/internal/publishing"
 )
 
 func (h *PublicHandler) publicBaseURL(r *http.Request) string {
@@ -280,29 +280,29 @@ type publicCatalogCard struct {
 }
 
 type publicCatalogViewData struct {
-	Workspace     *models.Workspace
-	Collection    *models.Collection
-	Items         []publicCatalogCard
-	Collections   []*models.Collection
-	Branding      models.BrandingSettings
-	BaseURL       string
-	CanonicalURL  string
-	RSSURL        string
-	MetaTitle     string
-	MetaDesc      string
-	OGImage       string
-	FaviconURL    string
-	PrimaryColor  string
-	Background    string
-	Query         string
-	Page          int
-	TotalPages    int
-	Total         int
-	PreviousURL   string
-	NextURL       string
-	NoIndex       bool
-	Language      string
-	Direction     string
+	Workspace    *models.Workspace
+	Collection   *models.Collection
+	Items        []publicCatalogCard
+	Collections  []*models.Collection
+	Branding     models.BrandingSettings
+	BaseURL      string
+	CanonicalURL string
+	RSSURL       string
+	MetaTitle    string
+	MetaDesc     string
+	OGImage      string
+	FaviconURL   string
+	PrimaryColor string
+	Background   string
+	Query        string
+	Page         int
+	TotalPages   int
+	Total        int
+	PreviousURL  string
+	NextURL      string
+	NoIndex      bool
+	Language     string
+	Direction    string
 }
 
 func (h *PublicHandler) Catalog(w http.ResponseWriter, r *http.Request) {
@@ -354,7 +354,7 @@ func (h *PublicHandler) Collection(w http.ResponseWriter, r *http.Request) {
 	}
 	authorizations := make([]*publishing.Authorization, 0, len(collection.FlipbookIDs))
 	for _, id := range collection.FlipbookIDs {
-		fb, getErr := h.db.GetFlipbookInWorkspace(r.Context(), workspace.ID, id)
+		_, getErr := h.db.GetFlipbookInWorkspace(r.Context(), workspace.ID, id)
 		if getErr != nil {
 			continue
 		}

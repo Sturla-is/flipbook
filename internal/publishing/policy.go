@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jonradoff/flipbook/internal/models"
+	"github.com/metavert-io/flipbook/internal/models"
 )
 
 func EvaluateAccess(input PolicyInput) Decision {

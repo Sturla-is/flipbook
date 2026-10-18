@@ -3,8 +3,8 @@ package engagement
 import (
 	"context"
 
-	"github.com/jonradoff/flipbook/internal/database"
-	"github.com/jonradoff/flipbook/internal/models"
+	"github.com/metavert-io/flipbook/internal/database"
+	"github.com/metavert-io/flipbook/internal/models"
 )
 
 func (s *Service) Leads(ctx context.Context, filter database.LeadFilter) ([]*models.Lead, error) {

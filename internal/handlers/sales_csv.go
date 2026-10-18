@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jonradoff/flipbook/internal/sales"
+	"github.com/metavert-io/flipbook/internal/sales"
 )
 
 func (h *SalesHandler) AdminSalesCSV(w http.ResponseWriter, r *http.Request) {

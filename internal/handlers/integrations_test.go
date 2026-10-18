@@ -13,9 +13,9 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/jonradoff/flipbook/internal/auth"
-	"github.com/jonradoff/flipbook/internal/integrations"
-	"github.com/jonradoff/flipbook/internal/models"
+	"github.com/metavert-io/flipbook/internal/auth"
+	"github.com/metavert-io/flipbook/internal/integrations"
+	"github.com/metavert-io/flipbook/internal/models"
 )
 
 func TestIntegrationRouteContracts(t *testing.T) {

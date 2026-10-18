@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jonradoff/flipbook/internal/config"
+	"github.com/metavert-io/flipbook/internal/config"
 )
 
 type request struct {

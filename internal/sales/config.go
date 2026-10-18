@@ -3,7 +3,7 @@ package sales
 import (
 	"net/http"
 
-	"github.com/jonradoff/flipbook/internal/config"
+	"github.com/metavert-io/flipbook/internal/config"
 )
 
 func NewWithConfig(store Store, cfg *config.Config) (*Service, error) {

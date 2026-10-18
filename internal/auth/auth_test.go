@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jonradoff/flipbook/internal/models"
+	"github.com/metavert-io/flipbook/internal/models"
 )
 
 const testPassword = "correct-horse-battery"

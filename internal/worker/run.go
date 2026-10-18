@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jonradoff/flipbook/internal/models"
+	"github.com/metavert-io/flipbook/internal/models"
 )
 
 func (w *Worker) Start(ctx context.Context) {

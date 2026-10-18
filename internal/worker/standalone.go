@@ -6,10 +6,10 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/jonradoff/flipbook/internal/config"
-	"github.com/jonradoff/flipbook/internal/converter"
-	"github.com/jonradoff/flipbook/internal/database"
-	"github.com/jonradoff/flipbook/internal/storage"
+	"github.com/metavert-io/flipbook/internal/config"
+	"github.com/metavert-io/flipbook/internal/converter"
+	"github.com/metavert-io/flipbook/internal/database"
+	"github.com/metavert-io/flipbook/internal/storage"
 )
 
 func NewWithConfig(db *database.DB, store *storage.Storage, conv *converter.Converter, cfg *config.Config) (*Worker, error) {

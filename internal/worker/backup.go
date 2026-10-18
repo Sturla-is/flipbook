@@ -10,7 +10,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/jonradoff/flipbook/internal/models"
+	"github.com/metavert-io/flipbook/internal/models"
 )
 
 func (w *Worker) processBackup(ctx context.Context, job *models.Job, progress *progressState) error {

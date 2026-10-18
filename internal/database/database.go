@@ -6,8 +6,11 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/metavert-io/flipbook/internal/models"
+	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/mongo/readpref"
 )
 
 var (
@@ -85,6 +88,12 @@ func Open(ctx context.Context, uri, dbName string) (*DB, error) {
 		_ = client.Disconnect(context.Background())
 		return nil, fmt.Errorf("database indexes: %w", err)
 	}
+	if err := createIndexes(ctx, d.flipbooks, []mongo.IndexModel{
+		index(bson.D{{Key: "tenant_id", Value: 1}, {Key: "created_at", Value: -1}}),
+	}); err != nil {
+		_ = client.Disconnect(context.Background())
+		return nil, fmt.Errorf("database indexes: %w", err)
+	}
 	return d, nil
 }
 
@@ -112,4 +121,34 @@ func decodeCursor[T any](ctx context.Context, collection *mongo.Collection, filt
 		return nil, err
 	}
 	return results, nil
+}
+
+// Database returns the raw mongo.Database for use by the SaaS layer.
+func (d *DB) Database() *mongo.Database {
+	return d.database
+}
+
+// Ping verifies the driver can reach a MongoDB primary. Used by the /readyz
+// readiness probe so Fly can recycle a machine whose driver topology has
+// wedged into ReplicaSetNoPrimary (see the 2026-07 outage) instead of letting
+// it serve 30s-timeout errors indefinitely.
+func (d *DB) Ping(ctx context.Context) error {
+	return d.client.Ping(ctx, readpref.Primary())
+}
+
+// ListFlipbooksByTenant returns flipbooks owned by a specific tenant.
+func (d *DB) ListFlipbooksByTenant(tenantID string) ([]*models.Flipbook, error) {
+	filter := bson.M{"tenant_id": tenantID, "deleted_at": nil}
+	opts := options.Find().SetSort(bson.D{{Key: "created_at", Value: -1}})
+	return decodeCursor[models.Flipbook](context.Background(), d.flipbooks, filter, opts)
+}
+
+// GetFlipbookForTenant returns a flipbook only if it belongs to the given tenant.
+func (d *DB) GetFlipbookForTenant(id, tenantID string) (*models.Flipbook, error) {
+	var fb models.Flipbook
+	filter := bson.M{"_id": id, "tenant_id": tenantID, "deleted_at": nil}
+	if err := d.flipbooks.FindOne(context.Background(), filter).Decode(&fb); err != nil {
+		return nil, err
+	}
+	return &fb, nil
 }

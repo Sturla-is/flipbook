@@ -1,4 +1,5 @@
-.PHONY: build run dev clean check-deps setup set-password deploy
+.PHONY: build run dev clean check-deps setup set-password deploy \
+       setup-saas build-frontend build-saas deploy-saas
 
 build:
 	go build -o bin/flipbook .
@@ -24,4 +25,18 @@ deploy:
 	fly deploy
 
 clean:
-	rm -rf bin/
+	rm -rf bin/ .frontend-build/ frontend-dist/
+
+# --- SaaS mode targets ---
+
+setup-saas:
+	./scripts/setup-saas.sh
+
+build-frontend:
+	./scripts/build-frontend.sh
+
+build-saas: setup-saas build-frontend build
+	@echo "SaaS build complete. Run with FLIPBOOK_SAAS_ENABLED=true"
+
+deploy-saas:
+	fly deploy --config fly.saas.toml --dockerfile Dockerfile.saas

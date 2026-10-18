@@ -184,6 +184,7 @@ type Flipbook struct {
 	AccessTokens []AccessToken `bson:"access_tokens,omitempty" json:"access_tokens,omitempty"`
 
 	GridFSFileID   string     `bson:"gridfs_file_id,omitempty" json:"gridfs_file_id,omitempty"`
+	TenantID       string     `bson:"tenant_id,omitempty" json:"tenant_id,omitempty"` // Owning tenant (empty = legacy admin flipbook)
 	SourceChecksum string     `bson:"source_checksum,omitempty" json:"source_checksum,omitempty"`
 	BackupStatus   string     `bson:"backup_status,omitempty" json:"backup_status,omitempty"`
 	BackupError    string     `bson:"backup_error,omitempty" json:"backup_error,omitempty"`

@@ -12,12 +12,13 @@ import (
 	"unicode/utf8"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/jonradoff/flipbook/internal/converter"
-	"github.com/jonradoff/flipbook/internal/database"
-	"github.com/jonradoff/flipbook/internal/distribution"
-	"github.com/jonradoff/flipbook/internal/models"
-	"github.com/jonradoff/flipbook/internal/publishing"
-	"github.com/jonradoff/flipbook/internal/storage"
+	"github.com/metavert-io/flipbook/internal/converter"
+	"github.com/metavert-io/flipbook/internal/database"
+	"github.com/metavert-io/flipbook/internal/distribution"
+	"github.com/metavert-io/flipbook/internal/models"
+	"github.com/metavert-io/flipbook/internal/publishing"
+	"github.com/metavert-io/flipbook/internal/saas"
+	"github.com/metavert-io/flipbook/internal/storage"
 )
 
 type ViewerHandler struct {
@@ -26,6 +27,7 @@ type ViewerHandler struct {
 	tmpl       *template.Template
 	baseURL    string
 	publishing *publishing.Service
+	billing    *saas.BillingChecker // nil when SaaS mode is disabled
 }
 
 func NewViewerHandler(db *database.DB, store *storage.Storage, tmpl *template.Template, baseURL string, services ...*publishing.Service) *ViewerHandler {
@@ -35,6 +37,11 @@ func NewViewerHandler(db *database.DB, store *storage.Storage, tmpl *template.Te
 func (h *ViewerHandler) SetPublishing(service *publishing.Service) *ViewerHandler {
 	h.publishing = service
 	return h
+}
+
+// SetBilling enables billing status checks for tenant-owned flipbooks.
+func (h *ViewerHandler) SetBilling(bc *saas.BillingChecker) {
+	h.billing = bc
 }
 
 func (h *ViewerHandler) View(w http.ResponseWriter, r *http.Request) {
@@ -70,6 +77,16 @@ func (h *ViewerHandler) serve(w http.ResponseWriter, r *http.Request, embedded b
 	if err != nil {
 		h.renderAccessError(w, r, nil, err, embedded)
 		return
+	}
+	// Billing check for tenant-owned flipbooks (legacy admin flipbooks always served)
+	if fb.TenantID != "" && h.billing != nil {
+		if !h.billing.TenantCanServe(r.Context(), fb.TenantID) {
+			h.tmpl.ExecuteTemplate(w, "unavailable", map[string]interface{}{
+				"Flipbook": fb,
+				"BaseURL":  h.baseURL,
+			})
+			return
+		}
 	}
 	request := readerAccessRequest(r, h.publishing, fb.ID, embedded)
 	var authorization *publishing.Authorization
@@ -169,10 +186,10 @@ type readerCTA struct {
 }
 
 type readerShare struct {
-	Enabled   bool              `json:"enabled"`
-	Native    bool              `json:"native"`
-	Links     map[string]string `json:"links"`
-	EmbedCode string            `json:"embed_code"`
+	Enabled   bool                      `json:"enabled"`
+	Native    bool                      `json:"native"`
+	Links     map[string]string         `json:"links"`
+	EmbedCode string                    `json:"embed_code"`
 	Options   distribution.EmbedOptions `json:"options"`
 }
 
@@ -196,36 +213,36 @@ type readerAnalytics struct {
 }
 
 type readerClientData struct {
-	ID            string                  `json:"id"`
-	WorkspaceID   string                  `json:"workspace_id"`
-	Title         string                  `json:"title"`
-	Slug          string                  `json:"slug"`
-	BaseURL       string                  `json:"base_url"`
-	CanonicalURL  string                  `json:"canonical_url"`
-	Language      string                  `json:"language"`
-	Direction     string                  `json:"direction"`
-	Strings       map[string]string       `json:"strings"`
-	Pages         []readerPage            `json:"pages"`
-	PageCount     int                     `json:"page_count"`
-	PreviewPages  int                     `json:"preview_pages"`
-	FullAccess    bool                    `json:"full_access"`
-	Outline       []converter.OutlineItem `json:"outline"`
-	StartPage     int                     `json:"start_page"`
-	Mode          string                  `json:"mode"`
-	Embedded      bool                    `json:"embedded"`
-	ShowToolbar   bool                    `json:"show_toolbar"`
-	ShowSearch    bool                    `json:"show_search"`
-	ShowDownload  bool                    `json:"show_download"`
-	ShowBranding  bool                    `json:"show_branding"`
-	DownloadGate  string                  `json:"download_gate"`
-	Background    string                  `json:"background"`
-	Capabilities  publishing.Capabilities `json:"capabilities"`
-	Endpoints     readerEndpoints         `json:"endpoints"`
-	Share         readerShare             `json:"share"`
-	CTA           *readerCTA              `json:"cta,omitempty"`
-	Lead          readerGate              `json:"lead"`
-	Sale          readerSale              `json:"sale"`
-	Analytics     readerAnalytics         `json:"analytics"`
+	ID           string                  `json:"id"`
+	WorkspaceID  string                  `json:"workspace_id"`
+	Title        string                  `json:"title"`
+	Slug         string                  `json:"slug"`
+	BaseURL      string                  `json:"base_url"`
+	CanonicalURL string                  `json:"canonical_url"`
+	Language     string                  `json:"language"`
+	Direction    string                  `json:"direction"`
+	Strings      map[string]string       `json:"strings"`
+	Pages        []readerPage            `json:"pages"`
+	PageCount    int                     `json:"page_count"`
+	PreviewPages int                     `json:"preview_pages"`
+	FullAccess   bool                    `json:"full_access"`
+	Outline      []converter.OutlineItem `json:"outline"`
+	StartPage    int                     `json:"start_page"`
+	Mode         string                  `json:"mode"`
+	Embedded     bool                    `json:"embedded"`
+	ShowToolbar  bool                    `json:"show_toolbar"`
+	ShowSearch   bool                    `json:"show_search"`
+	ShowDownload bool                    `json:"show_download"`
+	ShowBranding bool                    `json:"show_branding"`
+	DownloadGate string                  `json:"download_gate"`
+	Background   string                  `json:"background"`
+	Capabilities publishing.Capabilities `json:"capabilities"`
+	Endpoints    readerEndpoints         `json:"endpoints"`
+	Share        readerShare             `json:"share"`
+	CTA          *readerCTA              `json:"cta,omitempty"`
+	Lead         readerGate              `json:"lead"`
+	Sale         readerSale              `json:"sale"`
+	Analytics    readerAnalytics         `json:"analytics"`
 }
 
 type readerViewData struct {
@@ -433,18 +450,18 @@ func (h *ViewerHandler) buildViewData(r *http.Request, authorization *publishing
 		StartPage: startPage, Mode: mode, Embedded: embedded, ShowToolbar: !embedded || embedOptions.ShowToolbar,
 		ShowSearch: !embedded || embedOptions.ShowSearch, ShowDownload: !embedded || embedOptions.ShowDownload,
 		ShowBranding: showBranding, DownloadGate: downloadGate,
-		Background: distribution.SafeColor(embedOptions.Background, distribution.SafeColor(branding.BackgroundColor, "#111827")),
+		Background:   distribution.SafeColor(embedOptions.Background, distribution.SafeColor(branding.BackgroundColor, "#111827")),
 		Capabilities: decision.Capabilities,
 		Endpoints: readerEndpoints{
 			Events: readerEndpoint(fb.ID, "events", request.Grant), Lead: readerEndpoint(fb.ID, "lead", request.Grant),
 			Dismiss: readerEndpoint(fb.ID, "lead/dismiss", request.Grant), Checkout: readerEndpoint(fb.ID, "checkout", request.Grant),
-			Access: readerEndpoint(fb.ID, "access", request.Grant),
+			Access:   readerEndpoint(fb.ID, "access", request.Grant),
 			Download: readerAddQuery(readerEndpoint(fb.ID, "download", request.Grant), "kind", "pdf"),
-			Print: readerAddQuery(readerEndpoint(fb.ID, "download", request.Grant), "kind", "print"), QR: readerEndpoint(fb.ID, "qr", request.Grant),
+			Print:    readerAddQuery(readerEndpoint(fb.ID, "download", request.Grant), "kind", "print"), QR: readerEndpoint(fb.ID, "qr", request.Grant),
 		},
-		Share: readerShare{Enabled: decision.Capabilities.Share, Native: fb.Share.Native, Links: shareLinks, EmbedCode: embedCode, Options: embedOptions},
-		Lead: readerGate{Required: decision.LeadGateRequired && fb.LeadGate.GateReading && allowedPages < pageCount, Dismissible: decision.LeadGateDismissible, ConsentText: fb.LeadGate.ConsentText, SuccessText: fb.LeadGate.SuccessMessage},
-		Sale: readerSale{Required: decision.PurchaseRequired && allowedPages < pageCount, PriceCents: fb.Sales.PriceCents, Currency: fb.Sales.Currency},
+		Share:     readerShare{Enabled: decision.Capabilities.Share, Native: fb.Share.Native, Links: shareLinks, EmbedCode: embedCode, Options: embedOptions},
+		Lead:      readerGate{Required: decision.LeadGateRequired && fb.LeadGate.GateReading && allowedPages < pageCount, Dismissible: decision.LeadGateDismissible, ConsentText: fb.LeadGate.ConsentText, SuccessText: fb.LeadGate.SuccessMessage},
+		Sale:      readerSale{Required: decision.PurchaseRequired && allowedPages < pageCount, PriceCents: fb.Sales.PriceCents, Currency: fb.Sales.Currency},
 		Analytics: readerAnalytics{Policy: workspace.Settings.AnalyticsConsentPolicy, Consented: readerAnalyticsConsent(r), Placement: readerPlacement(embedded)},
 	}
 	if fb.CTA.Enabled {

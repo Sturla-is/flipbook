@@ -14,11 +14,11 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
-	"github.com/jonradoff/flipbook/internal/converter"
-	"github.com/jonradoff/flipbook/internal/database"
-	"github.com/jonradoff/flipbook/internal/models"
-	"github.com/jonradoff/flipbook/internal/storage"
-	"github.com/jonradoff/flipbook/internal/worker"
+	"github.com/metavert-io/flipbook/internal/converter"
+	"github.com/metavert-io/flipbook/internal/database"
+	"github.com/metavert-io/flipbook/internal/models"
+	"github.com/metavert-io/flipbook/internal/storage"
+	"github.com/metavert-io/flipbook/internal/worker"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
@@ -41,8 +41,8 @@ type APIOptions struct {
 	Now            func() time.Time
 }
 
-func NewAPIHandler(db *database.DB, store *storage.Storage, w *worker.Worker, baseURL string) *APIHandler {
-	return NewAPIHandlerWithOptions(db, store, w, baseURL, APIOptions{})
+func NewAPIHandler(db *database.DB, store *storage.Storage, w *worker.Worker, baseURL string, maxUploadSize int64) *APIHandler {
+	return NewAPIHandlerWithOptions(db, store, w, baseURL, APIOptions{MaxUploadBytes: maxUploadSize})
 }
 
 func NewAPIHandlerWithOptions(db *database.DB, store *storage.Storage, w *worker.Worker, baseURL string, options APIOptions) *APIHandler {

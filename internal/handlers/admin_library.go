@@ -13,10 +13,10 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-	"github.com/jonradoff/flipbook/internal/converter"
-	"github.com/jonradoff/flipbook/internal/database"
-	"github.com/jonradoff/flipbook/internal/models"
-	"github.com/jonradoff/flipbook/internal/worker"
+	"github.com/metavert-io/flipbook/internal/converter"
+	"github.com/metavert-io/flipbook/internal/database"
+	"github.com/metavert-io/flipbook/internal/models"
+	"github.com/metavert-io/flipbook/internal/worker"
 )
 
 type adminPaginationLink struct {

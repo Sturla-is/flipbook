@@ -12,6 +12,15 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// SaaSConfig holds multi-tenant SaaS mode settings. When Enabled is false,
+// flipbook runs in single-tenant admin-only mode (the original behavior).
+type SaaSConfig struct {
+	Enabled         bool   `yaml:"enabled"`
+	JWTSecret       string `yaml:"jwt_access_secret"`
+	GracePeriodDays int    `yaml:"grace_period_days"`
+	FrontendDir     string `yaml:"frontend_dir"`
+}
+
 type SecurityConfig struct {
 	HTTPSMode                bool     `yaml:"https_mode"`
 	SecureCookies            bool     `yaml:"secure_cookies"`
@@ -172,17 +181,18 @@ type StorageConfig struct {
 }
 
 type Config struct {
-	Port           string `yaml:"port"`
-	BaseURL        string `yaml:"base_url"`
-	DataDir        string `yaml:"data_dir"`
-	MongoURI       string `yaml:"mongo_uri"`
-	MongoDB        string `yaml:"mongo_db"`
-	LibreOfficeBin string `yaml:"libreoffice_bin"`
-	MaxUploadSize  int64  `yaml:"max_upload_size"`
-	ConversionDPI  int    `yaml:"conversion_dpi"`
-	ThumbnailDPI   int    `yaml:"thumbnail_dpi"`
-	SessionSecret  string `yaml:"session_secret"`
-	APIKey         string `yaml:"api_key"`
+	Port           string     `yaml:"port"`
+	BaseURL        string     `yaml:"base_url"`
+	DataDir        string     `yaml:"data_dir"`
+	MongoURI       string     `yaml:"mongo_uri"`
+	MongoDB        string     `yaml:"mongo_db"`
+	LibreOfficeBin string     `yaml:"libreoffice_bin"`
+	MaxUploadSize  int64      `yaml:"max_upload_size"`
+	ConversionDPI  int        `yaml:"conversion_dpi"`
+	ThumbnailDPI   int        `yaml:"thumbnail_dpi"`
+	SessionSecret  string     `yaml:"session_secret"`
+	APIKey         string     `yaml:"api_key"`
+	SaaS           SaaSConfig `yaml:"saas"`
 
 	Security   SecurityConfig   `yaml:"security"`
 	Analytics  AnalyticsConfig  `yaml:"analytics"`
@@ -204,7 +214,7 @@ type Config struct {
 func defaultConfig() *Config {
 	return &Config{
 		Port: "8080", BaseURL: "http://localhost:8080", DataDir: "./data",
-		MongoDB: "flipbook", MaxUploadSize: 104857600, ConversionDPI: 300, ThumbnailDPI: 72,
+		MongoDB: "flipbook", MaxUploadSize: 524288000, ConversionDPI: 300, ThumbnailDPI: 72,
 		Security: SecurityConfig{
 			HSTSMaxAgeSeconds: 31536000, SessionTTLSeconds: 604800,
 			LoginAttemptsPerMinute: 10,
@@ -227,6 +237,7 @@ func defaultConfig() *Config {
 		},
 		OCR:     OCRConfig{TesseractBin: "tesseract", Language: "eng", TimeoutSeconds: 60},
 		Storage: StorageConfig{Backend: "local"},
+		SaaS:    SaaSConfig{GracePeriodDays: 7},
 	}
 }
 
@@ -266,6 +277,11 @@ func load(getenv func(string) string, readFile func(string) ([]byte, error), str
 	b.apply(cfg)
 	if strict && b.err != nil {
 		return cfg, b.err
+	}
+
+	// SaaS defaults
+	if cfg.SaaS.GracePeriodDays == 0 {
+		cfg.SaaS.GracePeriodDays = 7
 	}
 
 	if cfg.LibreOfficeBin == "" {
@@ -435,6 +451,11 @@ func (b *envBinder) apply(c *Config) {
 	b.int("FLIPBOOK_THUMBNAIL_DPI", &c.ThumbnailDPI)
 	b.string("FLIPBOOK_SESSION_SECRET", &c.SessionSecret)
 	b.string("FLIPBOOK_API_KEY", &c.APIKey)
+
+	b.bool("FLIPBOOK_SAAS_ENABLED", &c.SaaS.Enabled)
+	b.string("FLIPBOOK_JWT_ACCESS_SECRET", &c.SaaS.JWTSecret)
+	b.int("FLIPBOOK_GRACE_PERIOD_DAYS", &c.SaaS.GracePeriodDays)
+	b.string("FLIPBOOK_FRONTEND_DIR", &c.SaaS.FrontendDir)
 
 	b.bool("FLIPBOOK_SECURITY_HTTPS_MODE", &c.Security.HTTPSMode)
 	b.bool("FLIPBOOK_SECURITY_SECURE_COOKIES", &c.Security.SecureCookies)

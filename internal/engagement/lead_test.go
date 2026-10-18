@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jonradoff/flipbook/internal/config"
-	"github.com/jonradoff/flipbook/internal/database"
-	"github.com/jonradoff/flipbook/internal/models"
-	"github.com/jonradoff/flipbook/internal/publishing"
+	"github.com/metavert-io/flipbook/internal/config"
+	"github.com/metavert-io/flipbook/internal/database"
+	"github.com/metavert-io/flipbook/internal/models"
+	"github.com/metavert-io/flipbook/internal/publishing"
 )
 
 func engagementFixture(t *testing.T) (*Service, *fakeStore, *fakePublisher, *fakeMailer, *models.Flipbook) {

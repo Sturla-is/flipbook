@@ -15,8 +15,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/jonradoff/flipbook/internal/converter"
-	"github.com/jonradoff/flipbook/internal/models"
+	"github.com/metavert-io/flipbook/internal/converter"
+	"github.com/metavert-io/flipbook/internal/models"
 )
 
 func BuildPlan(ctx context.Context, options Options) ([]Item, error) {

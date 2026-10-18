@@ -11,9 +11,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jonradoff/flipbook/internal/config"
-	"github.com/jonradoff/flipbook/internal/models"
-	"github.com/jonradoff/flipbook/internal/storage"
+	"github.com/metavert-io/flipbook/internal/config"
+	"github.com/metavert-io/flipbook/internal/models"
+	"github.com/metavert-io/flipbook/internal/storage"
 )
 
 var testPDF = []byte("%PDF-1.7\n1 0 obj<</Type/Catalog>>endobj\n%%EOF\n")

@@ -6,7 +6,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/jonradoff/flipbook/internal/models"
+	"github.com/metavert-io/flipbook/internal/models"
 )
 
 type EventLister interface {

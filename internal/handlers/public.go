@@ -19,13 +19,13 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/jonradoff/flipbook/internal/auth"
-	"github.com/jonradoff/flipbook/internal/converter"
-	"github.com/jonradoff/flipbook/internal/database"
-	"github.com/jonradoff/flipbook/internal/distribution"
-	"github.com/jonradoff/flipbook/internal/models"
-	"github.com/jonradoff/flipbook/internal/publishing"
-	"github.com/jonradoff/flipbook/internal/storage"
+	"github.com/metavert-io/flipbook/internal/auth"
+	"github.com/metavert-io/flipbook/internal/converter"
+	"github.com/metavert-io/flipbook/internal/database"
+	"github.com/metavert-io/flipbook/internal/distribution"
+	"github.com/metavert-io/flipbook/internal/models"
+	"github.com/metavert-io/flipbook/internal/publishing"
+	"github.com/metavert-io/flipbook/internal/storage"
 )
 
 type PublicCheckoutInput struct {
@@ -46,14 +46,14 @@ func (f PublicCheckoutFunc) CreateCheckout(ctx context.Context, input PublicChec
 }
 
 type PublicOptions struct {
-	Checkout             PublicCheckoutProvider
-	AnalyticsDisabled    bool
-	AnalyticsRetention   time.Duration
-	AnalyticsPolicy      string
-	AnalyticsPepper      string
-	AllowCountry         bool
-	IgnoreAdminPreviews  bool
-	Now                  func() time.Time
+	Checkout            PublicCheckoutProvider
+	AnalyticsDisabled   bool
+	AnalyticsRetention  time.Duration
+	AnalyticsPolicy     string
+	AnalyticsPepper     string
+	AllowCountry        bool
+	IgnoreAdminPreviews bool
+	Now                 func() time.Time
 }
 
 type PublicHandler struct {

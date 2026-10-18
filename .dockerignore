@@ -1,5 +1,34 @@
-data
-.git
+# Runtime data
+data/
+
+# Build artifacts
+bin/
+.frontend-build/
+frontend-dist/
+
+# Dev configs
+config.dev.yaml
+*.local
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+
+# Git
+.git/
 .gitignore
+lastsaas/.git/
+
+# Node modules (rebuilt in Docker)
 node_modules
+frontend-overlay/node_modules/
+lastsaas/frontend/node_modules/
+
+# Logs
 *.log
+
+# LastSaaS pieces not needed for build
+lastsaas/frontend/.git/

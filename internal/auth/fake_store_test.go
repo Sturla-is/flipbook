@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jonradoff/flipbook/internal/database"
-	"github.com/jonradoff/flipbook/internal/models"
+	"github.com/metavert-io/flipbook/internal/database"
+	"github.com/metavert-io/flipbook/internal/models"
 )
 
 type fakeStore struct {

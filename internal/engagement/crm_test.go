@@ -10,8 +10,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/jonradoff/flipbook/internal/config"
-	"github.com/jonradoff/flipbook/internal/models"
+	"github.com/metavert-io/flipbook/internal/config"
+	"github.com/metavert-io/flipbook/internal/models"
 )
 
 func TestCRMConnectorsUseMockedHTTP(t *testing.T) {

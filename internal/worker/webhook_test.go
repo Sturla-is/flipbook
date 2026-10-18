@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jonradoff/flipbook/internal/models"
-	"github.com/jonradoff/flipbook/internal/storage"
+	"github.com/metavert-io/flipbook/internal/models"
+	"github.com/metavert-io/flipbook/internal/storage"
 )
 
 func TestWebhookDeliveryIsSignedAndRetriesFailures(t *testing.T) {

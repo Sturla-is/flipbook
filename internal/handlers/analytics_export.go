@@ -5,7 +5,7 @@ import (
 	"mime"
 	"net/http"
 
-	"github.com/jonradoff/flipbook/internal/analytics"
+	"github.com/metavert-io/flipbook/internal/analytics"
 )
 
 func (h *AnalyticsHandler) ExportReportJSON(w http.ResponseWriter, r *http.Request) {
