@@ -1,0 +1,86 @@
+{{define "admin_lead_integrations"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex,nofollow">
+    <title>Engagement integrations - Flipbook</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/engagement.css">
+</head>
+<body>
+    <nav class="navbar" aria-label="Administration">
+        <a href="/admin" class="logo">Flipbook</a>
+        <div class="nav-links"><a href="/admin">Dashboard</a><a href="/admin/leads">Leads</a><a href="/admin/leads/integrations" aria-current="page">Engagement integrations</a></div>
+    </nav>
+    <main class="container engagement-admin">
+        <h1>Engagement integrations</h1>
+        {{if .Notice}}<div class="engagement-alert engagement-alert-success" role="status">{{.Notice}}</div>{{end}}
+        {{if .Error}}<div class="engagement-alert engagement-alert-error" role="alert">{{.Error}}</div>{{end}}
+        {{if .NewSecret}}
+        <div class="engagement-alert engagement-alert-success" role="status">
+            <h2>Copy the new webhook secret now</h2>
+            <p>This secret is shown only once. Store it securely; it is encrypted at rest and is never included in delivery logs.</p>
+            <label for="new-webhook-secret">Webhook signing secret</label>
+            <div class="engagement-copy-row"><input id="new-webhook-secret" type="text" readonly value="{{.NewSecret}}"><button type="button" class="engagement-button engagement-button-secondary" data-copy-target="new-webhook-secret">Copy</button></div>
+            <span data-copy-status role="status" aria-live="polite"></span>
+        </div>
+        {{end}}
+
+        <section class="engagement-section" aria-labelledby="crm-title">
+            <h2 id="crm-title">CRM and mailing providers</h2>
+            <p>Providers are configured through deployment settings. “Configured” does not claim connectivity; verification occurs only after a successful delivery.</p>
+            <div class="engagement-card-grid">
+            {{range .CRM}}
+                <article class="engagement-provider-card">
+                    <h3>{{.Provider}}</h3>
+                    <p><strong>Status:</strong> {{if not .Enabled}}Disabled{{else if not .Configured}}Not configured{{else if .Verified}}Verified by a successful delivery{{else}}Configured; not yet verified{{end}}</p>
+                    {{if .LastSuccessAt}}<p><strong>Last success:</strong> {{.LastSuccessAt}}</p>{{end}}
+                    {{if and .Enabled .LastError}}<p class="engagement-error-text">{{.LastError}}</p>{{end}}
+                </article>
+            {{end}}
+            </div>
+        </section>
+
+        <section class="engagement-section" aria-labelledby="webhook-create-title">
+            <h2 id="webhook-create-title">Generic signed webhooks</h2>
+            {{if .WebhookStatus.Enabled}}
+            <p>Deliveries use HMAC-SHA256 signatures, an event timestamp, and an idempotency key. Failed deliveries retry up to {{.WebhookStatus.MaxAttempts}} times with {{.WebhookStatus.RetryBackoffSeconds}}-second base backoff and a {{.WebhookStatus.TimeoutSeconds}}-second request timeout.</p>
+            <form method="post" action="/admin/leads/integrations/webhooks" class="engagement-form">
+                <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+                <div class="engagement-field"><label for="webhook-url">Endpoint URL</label><input id="webhook-url" name="url" type="url" required maxlength="2048" placeholder="https://example.com/flipbook-events" aria-describedby="webhook-url-help"><p id="webhook-url-help" class="engagement-help">HTTPS is required outside loopback development. Credentials, query strings, and fragments are not accepted.</p></div>
+                <fieldset class="engagement-fieldset"><legend>Events</legend>
+                    <div class="engagement-checkbox"><input id="event-lead" name="events" type="checkbox" value="lead.captured"><label for="event-lead">Lead captured</label></div>
+                    <div class="engagement-checkbox"><input id="event-pending" name="events" type="checkbox" value="subscriber.pending"><label for="event-pending">Subscription pending</label></div>
+                    <div class="engagement-checkbox"><input id="event-confirmed" name="events" type="checkbox" value="subscriber.confirmed"><label for="event-confirmed">Subscription confirmed</label></div>
+                    <div class="engagement-checkbox"><input id="event-unsubscribed" name="events" type="checkbox" value="subscriber.unsubscribed"><label for="event-unsubscribed">Unsubscribed</label></div>
+                    <div class="engagement-checkbox"><input id="event-published" name="events" type="checkbox" value="publication.published"><label for="event-published">Publication published</label></div>
+                    <div class="engagement-checkbox"><input id="event-all" name="events" type="checkbox" value="*"><label for="event-all">All events</label></div>
+                </fieldset>
+                <div class="engagement-field"><label for="webhook-custom-events">Additional event names <span class="engagement-muted">(optional)</span></label><input id="webhook-custom-events" name="custom_events" type="text" placeholder="conversion.ready, publication.deleted"></div>
+                <div class="engagement-field"><label for="webhook-secret">Override signing secret <span class="engagement-muted">(optional)</span></label><input id="webhook-secret" name="secret" type="password" minlength="32" maxlength="4096" autocomplete="new-password" aria-describedby="webhook-secret-help"><p id="webhook-secret-help" class="engagement-help">Leave blank to use the deployment secret. If none is configured, a secret is generated and displayed once.</p></div>
+                <button type="submit" class="engagement-button engagement-button-primary">Create webhook</button>
+            </form>
+            {{else}}<p class="engagement-alert engagement-alert-error">Generic webhooks are disabled. Enable and configure them in deployment settings before creating subscriptions.</p>{{end}}
+        </section>
+
+        <section class="engagement-section" aria-labelledby="webhook-list-title">
+            <h2 id="webhook-list-title">Webhook subscriptions</h2>
+            {{if .Webhooks}}<div class="engagement-table-wrap" tabindex="0" role="region" aria-label="Webhook subscriptions table"><table class="engagement-table"><thead><tr><th scope="col">Endpoint</th><th scope="col">Events</th><th scope="col">State</th><th scope="col">Action</th></tr></thead><tbody>
+            {{range .Webhooks}}<tr><td>{{.URL}}</td><td>{{range .Events}}<code>{{.}}</code> {{end}}</td><td>{{if .Enabled}}Enabled{{else}}Disabled{{end}}</td><td><form method="post" action="/admin/leads/integrations/webhooks/{{.ID}}"><input type="hidden" name="csrf_token" value="{{$.CSRFToken}}"><input type="hidden" name="enabled" value="{{if .Enabled}}false{{else}}true{{end}}"><button type="submit" class="engagement-button engagement-button-secondary engagement-button-small">{{if .Enabled}}Disable{{else}}Enable{{end}}</button></form></td></tr>{{end}}
+            </tbody></table></div>{{else}}<p>No webhook subscriptions.</p>{{end}}
+        </section>
+
+        <section class="engagement-section" aria-labelledby="delivery-list-title">
+            <h2 id="delivery-list-title">Recent deliveries</h2>
+            <p>Payloads and signing secrets are intentionally not displayed.</p>
+            {{if .Deliveries}}<div class="engagement-table-wrap" tabindex="0" role="region" aria-label="Webhook deliveries table"><table class="engagement-table"><thead><tr><th scope="col">Event</th><th scope="col">Status</th><th scope="col">Attempts</th><th scope="col">Next attempt</th><th scope="col">HTTP status</th><th scope="col">Last error</th></tr></thead><tbody>
+            {{range .Deliveries}}<tr><td><code>{{.EventType}}</code></td><td>{{.Status}}</td><td>{{.Attempts}} / {{.MaxAttempts}}</td><td>{{.NextAttemptAt}}</td><td>{{if .ResponseStatus}}{{.ResponseStatus}}{{else}}—{{end}}</td><td>{{.LastError}}</td></tr>{{end}}
+            </tbody></table></div>{{else}}<p>No webhook deliveries yet.</p>{{end}}
+        </section>
+    </main>
+    <script src="/static/js/engagement.js" defer></script>
+</body>
+</html>
+{{end}}

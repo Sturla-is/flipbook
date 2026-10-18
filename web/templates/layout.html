@@ -1,3 +1,73 @@
+{{define "admin_head"}}
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex,nofollow,noarchive">
+<title>{{.PageTitle}}</title>
+<link rel="icon" type="image/svg+xml" href="/static/img/favicon.svg">
+<link rel="stylesheet" href="/static/css/style.css">
+{{end}}
+
+{{define "admin_csrf"}}{{if .CSRFToken}}<input type="hidden" name="csrf_token" value="{{.CSRFToken}}">{{end}}{{end}}
+
+{{define "admin_nav"}}
+<a class="skip-link" href="#main-content">Skip to main content</a>
+<nav class="navbar" aria-label="Administration">
+    <div class="nav-brand-row">
+        <a href="/admin" class="logo" aria-label="Flipbook library">Flipbook</a>
+        {{if .Workspace}}<span class="workspace-label">{{.Workspace.Name}}</span>{{end}}
+        <button type="button" class="nav-toggle" data-nav-toggle aria-expanded="false" aria-controls="admin-navigation">Menu</button>
+    </div>
+    <div class="nav-links" id="admin-navigation" data-nav-links>
+        <a href="/admin" {{if eq .ActiveNav "library"}}class="active" aria-current="page"{{end}}>Library</a>
+        {{if .CanEdit}}<a href="/admin/upload" {{if eq .ActiveNav "upload"}}class="active" aria-current="page"{{end}}>Upload</a>
+        <a href="/admin/collections" {{if eq .ActiveNav "collections"}}class="active" aria-current="page"{{end}}>Collections</a>{{end}}
+        <a href="/admin/analytics" {{if eq .ActiveNav "analytics"}}class="active" aria-current="page"{{end}}>Analytics</a>
+        <a href="/admin/leads" {{if eq .ActiveNav "leads"}}class="active" aria-current="page"{{end}}>Leads</a>
+        <a href="/admin/sales" {{if eq .ActiveNav "sales"}}class="active" aria-current="page"{{end}}>Sales</a>
+        {{if .CanManage}}<a href="/admin/integrations" {{if eq .ActiveNav "integrations"}}class="active" aria-current="page"{{end}}>Integrations</a>
+        <a href="/admin/team" {{if eq .ActiveNav "team"}}class="active" aria-current="page"{{end}}>Team</a>{{end}}
+        <form method="POST" action="/logout" class="nav-logout">
+            {{template "admin_csrf" .}}
+            <button type="submit" class="btn btn-quiet btn-sm">Sign out</button>
+        </form>
+    </div>
+</nav>
+{{end}}
+
+{{define "admin_team_nav"}}
+<nav class="subnav" aria-label="Workspace administration">
+    <a href="/admin/team" {{if eq .TeamSection "members"}}class="active" aria-current="page"{{end}}>Members</a>
+    <a href="/admin/workspace" {{if eq .TeamSection "workspace"}}class="active" aria-current="page"{{end}}>Workspace settings</a>
+    <a href="/admin/security" {{if eq .TeamSection "security"}}class="active" aria-current="page"{{end}}>API keys &amp; audit</a>
+</nav>
+{{end}}
+
+{{define "admin_flash"}}
+{{if .Notice}}<div class="flash flash-success" role="status">{{.Notice}}</div>{{end}}
+{{if .Error}}<div class="flash flash-error" role="alert">{{.Error}}</div>{{end}}
+<div class="flash flash-error hidden" id="client-error" role="alert"></div>
+<div class="flash hidden" id="client-status" role="status" aria-live="polite"></div>
+{{end}}
+
+{{define "admin_pagination"}}
+{{if .Pagination}}
+<nav class="pagination" aria-label="Library pages">
+    <p>Page {{.Pagination.Page}} of {{.Pagination.Pages}} <span class="text-muted">({{.Pagination.Total}} publications)</span></p>
+    <div class="pagination-links">
+        {{if .Pagination.PreviousURL}}<a class="btn btn-sm" href="{{.Pagination.PreviousURL}}" rel="prev">Previous</a>{{end}}
+        {{range .Pagination.Links}}
+            {{if .Ellipsis}}<span class="pagination-ellipsis" aria-hidden="true">{{.Label}}</span>
+            {{else if .Current}}<span class="page-current" aria-current="page">{{.Label}}</span>
+            {{else}}<a class="btn btn-sm" href="{{.URL}}">{{.Label}}</a>{{end}}
+        {{end}}
+        {{if .Pagination.NextURL}}<a class="btn btn-sm" href="{{.Pagination.NextURL}}" rel="next">Next</a>{{end}}
+    </div>
+</nav>
+{{end}}
+{{end}}
+
+{{define "admin_scripts"}}<script src="/static/js/admin.js" defer></script>{{end}}
+
 {{define "layout"}}
 <!DOCTYPE html>
 <html lang="en">

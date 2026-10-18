@@ -1,0 +1,78 @@
+{{define "admin_team"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>{{template "admin_head" .}}</head>
+<body>
+{{template "admin_nav" .}}
+<main class="container container-wide" id="main-content">
+    <div class="page-header"><div><h1>Team and access</h1><p class="text-muted">Manage workspace membership, named users, roles, and account sessions.</p></div></div>
+    {{template "admin_team_nav" .}}
+    {{template "admin_flash" .}}
+
+    {{if .InvitationURL}}
+    <section class="flash flash-success secret-reveal" aria-labelledby="invitation-created-heading">
+        <h2 id="invitation-created-heading">Invitation for {{.NewInvitation.Email}}</h2>
+        <p>This one-time link expires at {{.NewInvitation.ExpiresAt.Format "2006-01-02 15:04 UTC"}}. Copy it now; it will not be shown again.</p>
+        <div class="form-group"><label for="invitation-url">Invitation URL</label><div class="copy-row"><input type="text" id="invitation-url" value="{{.InvitationURL}}" readonly><button type="button" class="btn" data-copy-target="invitation-url">Copy</button></div></div>
+        <form method="POST" action="/admin/team/invitations/{{.NewInvitation.ID}}/revoke">{{template "admin_csrf" .}}<button type="submit" class="btn btn-danger">Revoke this invitation</button></form>
+    </section>
+    {{end}}
+
+    <section class="panel" aria-labelledby="invite-heading">
+        <h2 id="invite-heading">Invite a user</h2>
+        <form method="POST" action="/admin/team/invitations" class="form-grid">
+            {{template "admin_csrf" .}}
+            <div class="form-group"><label for="invite-email">Email</label><input type="email" id="invite-email" name="email" maxlength="320" required autocomplete="off"></div>
+            <div class="form-group"><label for="invite-role">Workspace role</label><select id="invite-role" name="role"><option value="reader">Reader</option><option value="editor">Editor</option><option value="publisher">Publisher</option><option value="admin">Admin</option></select></div>
+            <div class="form-group"><label for="invite-expiry">Valid for (days)</label><input type="number" id="invite-expiry" name="expires_in_days" value="7" min="1" max="30" required></div>
+            <div class="form-actions"><button type="submit" class="btn btn-primary">Create invitation</button></div>
+        </form>
+        <p class="field-help">Delivery depends on the configured mail channel. If no mail channel is configured, send the generated link through a trusted channel. Invitation acceptance and revocation events appear in the audit log.</p>
+    </section>
+
+    <section class="panel" aria-labelledby="members-heading">
+        <h2 id="members-heading">Workspace members</h2>
+        <div class="table-scroll"><table class="data-table member-table"><caption class="sr-only">Workspace users and membership management</caption><thead><tr><th scope="col">User</th><th scope="col">Role</th><th scope="col">Account</th><th scope="col">Membership actions</th></tr></thead><tbody>
+        {{range .Members}}
+        <tr>
+            <th scope="row">
+                <strong>{{.User.Name}}</strong>{{if eq .User.ID $.WorkspaceOwnerID}} <span class="badge badge-ready">Workspace owner</span>{{end}}
+                <span class="table-secondary">{{.User.Email}}</span>
+                <details class="inline-details"><summary>Edit profile</summary>
+                    <form method="POST" action="/admin/team/members/{{.User.ID}}/profile" class="form-grid compact-form">
+                        {{template "admin_csrf" $}}
+                        <div class="form-group"><label for="member-name-{{.User.ID}}">Name</label><input type="text" id="member-name-{{.User.ID}}" name="name" value="{{.User.Name}}" maxlength="200" required></div>
+                        <div class="form-group"><label for="member-locale-{{.User.ID}}">Locale</label><input type="text" id="member-locale-{{.User.ID}}" name="locale" value="{{.User.Locale}}" maxlength="35"></div>
+                        <div class="form-group"><label for="member-zone-{{.User.ID}}">Time zone</label><input type="text" id="member-zone-{{.User.ID}}" name="time_zone" value="{{.User.TimeZone}}" placeholder="Europe/Oslo"></div>
+                        <button type="submit" class="btn btn-sm">Save profile</button>
+                    </form>
+                </details>
+            </th>
+            <td>
+                {{if eq .Membership.Role "owner"}}<span class="badge">Owner</span>
+                {{else}}<form method="POST" action="/admin/team/members/{{.User.ID}}/role" class="inline-form">{{template "admin_csrf" $}}<label for="member-role-{{.User.ID}}" class="sr-only">Role for {{.User.Name}}</label><select id="member-role-{{.User.ID}}" name="role">{{$role := .Membership.Role}}<option value="reader" {{if eq $role "reader"}}selected{{end}}>Reader</option><option value="editor" {{if eq $role "editor"}}selected{{end}}>Editor</option><option value="publisher" {{if eq $role "publisher"}}selected{{end}}>Publisher</option><option value="admin" {{if eq $role "admin"}}selected{{end}}>Admin</option></select><button type="submit" class="btn btn-sm">Change role</button></form>{{end}}
+                <span class="table-secondary">Joined {{.Membership.CreatedAt.Format "2006-01-02"}}</span>
+            </td>
+            <td>{{if .User.DisabledAt}}<span class="badge badge-error">Disabled globally</span>{{else}}<span class="badge badge-ready">Active</span>{{end}}{{if .User.LastLoginAt}}<span class="table-secondary">Last login {{.User.LastLoginAt.Format "2006-01-02 15:04"}}</span>{{end}}</td>
+            <td><div class="table-actions">
+                <form method="POST" action="/admin/team/members/{{.User.ID}}/sessions" data-confirm="Revoke every session for {{.User.Name}}?">{{template "admin_csrf" $}}<button type="submit" class="btn btn-sm">Revoke sessions</button></form>
+                {{if and (ne .User.ID $.CurrentUserID) (ne .Membership.Role "owner")}}
+                    <form method="POST" action="/admin/team/members/{{.User.ID}}/disabled" data-confirm="Change this account status across all workspaces?">{{template "admin_csrf" $}}{{if .User.DisabledAt}}<input type="hidden" name="disabled" value="false"><button type="submit" class="btn btn-sm">Enable account</button>{{else}}<input type="hidden" name="disabled" value="true"><button type="submit" class="btn btn-sm">Disable account</button>{{end}}</form>
+                {{end}}
+                {{if ne .User.ID $.WorkspaceOwnerID}}<form method="POST" action="/admin/team/members/{{.User.ID}}/remove" data-confirm="Remove {{.User.Name}} from this workspace?">{{template "admin_csrf" $}}<button type="submit" class="btn btn-sm btn-danger">Remove from workspace</button></form>{{end}}
+            </div></td>
+        </tr>
+        {{else}}<tr><td colspan="4">No workspace members were found.</td></tr>{{end}}
+        </tbody></table></div>
+    </section>
+
+    <section class="panel" aria-labelledby="roles-heading">
+        <h2 id="roles-heading">Role capabilities and ownership</h2>
+        <dl class="definition-grid"><div><dt>Reader</dt><dd>Read-only library and publication access.</dd></div><div><dt>Editor</dt><dd>Upload, metadata, collections, replacements, and revisions.</dd></div><div><dt>Publisher</dt><dd>Editor capabilities plus lifecycle and share-token actions.</dd></div><div><dt>Admin</dt><dd>Team, workspace, API-key, audit, and trash management.</dd></div><div><dt>Owner</dt><dd>Workspace ownership and final authority.</dd></div></dl>
+        <p class="field-help">Workspace ownership transfer is intentionally disabled until the final atomic ownership-transfer database operation is wired. This prevents split ownership between the workspace and its memberships.</p>
+    </section>
+</main>
+{{template "admin_scripts" .}}
+</body>
+</html>
+{{end}}

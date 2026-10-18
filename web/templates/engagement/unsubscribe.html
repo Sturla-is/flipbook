@@ -1,0 +1,25 @@
+{{define "engagement_unsubscribe"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex,nofollow">
+    <title>Confirm unsubscription</title>
+    <link rel="stylesheet" href="/static/css/engagement.css">
+</head>
+<body class="engagement-page">
+    <main class="engagement-card">
+        <h1>Unsubscribe from notifications</h1>
+        <p>Confirm that you want to stop new-publication notifications for this catalog. This link identifies your subscription without requiring a password.</p>
+        <form method="post" action="/subscriptions/unsubscribe" class="engagement-form">
+            <input type="hidden" name="workspace_id" value="{{.WorkspaceID}}">
+            <input type="hidden" name="token" value="{{.Token}}">
+            <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+            <button type="submit" class="engagement-button engagement-button-danger">Unsubscribe</button>
+        </form>
+        <p><a href="/">Cancel and return to the catalog</a></p>
+    </main>
+</body>
+</html>
+{{end}}

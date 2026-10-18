@@ -1,0 +1,48 @@
+{{define "public_catalog"}}
+<!DOCTYPE html>
+<html lang="{{.Language}}" dir="{{.Direction}}">
+<head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.MetaTitle}}</title><meta name="description" content="{{.MetaDesc}}">
+    {{if .NoIndex}}<meta name="robots" content="noindex,nofollow,noarchive">{{end}}
+    <link rel="canonical" href="{{.CanonicalURL}}"><link rel="alternate" type="application/rss+xml" href="{{.RSSURL}}" title="{{.Workspace.Name}} publications">
+    <link rel="icon" href="{{.FaviconURL}}"><meta property="og:title" content="{{.MetaTitle}}"><meta property="og:description" content="{{.MetaDesc}}"><meta property="og:type" content="website"><meta property="og:url" content="{{.CanonicalURL}}">
+    {{if .OGImage}}<meta property="og:image" content="{{.OGImage}}">{{end}}
+    <link rel="stylesheet" href="/static/css/viewer.css?v=10">
+</head>
+<body class="public-catalog-page" style="--reader-primary:{{.PrimaryColor}};--reader-background:{{.Background}}">
+    <header class="catalog-header">
+        <div class="catalog-brand">
+            {{if .Branding.LogoURL}}<img class="reader-logo" src="{{.Branding.LogoURL}}" alt="{{.Workspace.Name}}">{{end}}
+            <div><p class="catalog-workspace">{{.Workspace.Name}}</p><h1>{{if .Collection}}{{.Collection.Name}}{{else}}Publications{{end}}</h1><p>{{.MetaDesc}}</p></div>
+        </div>
+        <form class="catalog-search" method="get" action="{{.CanonicalURL}}">
+            <label class="sr-only" for="catalog-query">Search publications</label><input id="catalog-query" type="search" name="q" value="{{.Query}}" placeholder="Search publications"><button type="submit">Search</button>
+        </form>
+    </header>
+    {{if .Collections}}
+    <nav class="collection-nav" aria-label="Collections"><span>Collections:</span>{{range .Collections}}<a href="{{$.BaseURL}}/p/{{$.Workspace.Slug}}/collections/{{.Slug}}">{{.Name}}</a>{{end}}</nav>
+    {{end}}
+    <main class="catalog-main">
+        <p class="catalog-count">{{.Total}} publication{{if ne .Total 1}}s{{end}}</p>
+        {{if .Items}}
+        <div class="catalog-grid">
+            {{range .Items}}
+            <article class="catalog-card">
+                <a class="catalog-cover" href="{{.URL}}"{{if .Language}} lang="{{.Language}}"{{end}}>
+                    {{if .Thumbnail}}<img src="{{.Thumbnail}}" alt="Cover of {{.Title}}" loading="lazy">{{else}}<span class="catalog-cover-empty" aria-hidden="true">PDF</span>{{end}}
+                </a>
+                <div class="catalog-card-body"><h2><a href="{{.URL}}">{{.Title}}</a></h2>{{if .Description}}<p>{{.Description}}</p>{{end}}<p class="catalog-meta">{{.PageCount}} page{{if ne .PageCount 1}}s{{end}}</p>
+                {{if .Tags}}<ul class="catalog-tags" aria-label="Tags">{{range .Tags}}<li>{{.}}</li>{{end}}</ul>{{end}}</div>
+            </article>
+            {{end}}
+        </div>
+        {{else}}<p class="catalog-empty">No publications are available.</p>{{end}}
+        <nav class="catalog-pagination" aria-label="Catalog pages">
+            {{if .PreviousURL}}<a href="{{.PreviousURL}}" rel="prev">Previous</a>{{end}}<span>Page {{.Page}} of {{.TotalPages}}</span>{{if .NextURL}}<a href="{{.NextURL}}" rel="next">Next</a>{{end}}
+        </nav>
+    </main>
+    <footer class="catalog-footer">{{if .Branding.Attribution}}{{.Branding.Attribution}}{{else}}Published with Flipbook{{end}} · <a href="{{.RSSURL}}">RSS</a></footer>
+</body>
+</html>
+{{end}}

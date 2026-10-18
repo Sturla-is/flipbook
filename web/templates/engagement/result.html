@@ -1,0 +1,19 @@
+{{define "engagement_result"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex,nofollow">
+    <title>{{.Title}}</title>
+    <link rel="stylesheet" href="/static/css/engagement.css">
+</head>
+<body class="engagement-page">
+    <main class="engagement-card">
+        <h1>{{.Title}}</h1>
+        <p>{{.Message}}</p>
+        {{if .ContinueURL}}<p><a class="engagement-button engagement-button-primary" href="{{.ContinueURL}}">{{if .ContinueLabel}}{{.ContinueLabel}}{{else}}Continue{{end}}</a></p>{{end}}
+    </main>
+</body>
+</html>
+{{end}}

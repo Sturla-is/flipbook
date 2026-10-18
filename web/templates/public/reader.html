@@ -1,0 +1,194 @@
+{{define "public_reader"}}
+<a class="skip-link" href="#reader-stage">Skip to publication</a>
+<div id="viewer-wrapper" class="reader-app" data-mode="{{.Client.Mode}}">
+    {{if .ShowBranding}}
+    <header id="reader-header" class="reader-header">
+        <div class="reader-brand">
+            {{if .Branding.LogoURL}}<img class="reader-logo" src="{{.Branding.LogoURL}}" alt="{{if .Branding.PublisherName}}{{.Branding.PublisherName}}{{else}}{{.Workspace.Name}}{{end}}">{{end}}
+            <div class="reader-heading">
+                <h1>{{.Flipbook.Title}}</h1>
+                {{if .Branding.PublisherName}}
+                    {{if .Branding.PublisherURL}}<a href="{{.Branding.PublisherURL}}" target="_blank" rel="noopener">{{.Branding.PublisherName}}</a>{{else}}<span>{{.Branding.PublisherName}}</span>{{end}}
+                {{else}}<span>{{.Workspace.Name}}</span>{{end}}
+            </div>
+        </div>
+    </header>
+    {{end}}
+
+    <main id="reader-main" class="reader-main">
+        <div id="reader-stage" class="reader-stage" tabindex="0" aria-label="{{.Flipbook.Title}}">
+            <button class="nav-overlay nav-previous" id="nav-prev" type="button" aria-label="Previous page" data-i18n-aria="previous">&#8592;</button>
+            <div id="reader-pages" class="reader-pages" aria-live="off"></div>
+            <button class="nav-overlay nav-next" id="nav-next" type="button" aria-label="Next page" data-i18n-aria="next">&#8594;</button>
+            <div id="reader-empty" class="reader-empty" hidden>
+                <p>This publication is available after access is granted.</p>
+            </div>
+        </div>
+        <a id="publication-cta" class="publication-cta" href="#" target="_blank" rel="noopener nofollow" hidden></a>
+    </main>
+
+    {{if .ShowToolbar}}
+    <nav id="controls" class="reader-controls" aria-label="Publication controls">
+        <div class="control-group control-navigation">
+            <button id="btn-prev" type="button" aria-label="Previous page" title="Previous page" data-i18n-aria="previous">&#8592;</button>
+            <form id="page-form" class="page-form">
+                <label class="sr-only" for="current-page">Page</label>
+                <input id="current-page" type="number" min="1" max="{{.Client.PreviewPages}}" value="{{.Client.StartPage}}" inputmode="numeric" aria-label="Current page">
+                <span aria-hidden="true">/ <span id="total-pages">{{.Client.PageCount}}</span></span>
+            </form>
+            <button id="btn-next" type="button" aria-label="Next page" title="Next page" data-i18n-aria="next">&#8594;</button>
+            <label class="sr-only" for="page-slider">Go to page</label>
+            <input id="page-slider" class="page-slider" type="range" min="1" max="{{.Client.PreviewPages}}" value="{{.Client.StartPage}}" aria-label="Go to page">
+        </div>
+        <div class="control-group control-display">
+            <label class="sr-only" for="reader-mode">Reading mode</label>
+            <select id="reader-mode" aria-label="Reading mode" title="Reading mode">
+                <option value="single"{{if eq .Client.Mode "single"}} selected{{end}}>Single page</option>
+                <option value="double"{{if eq .Client.Mode "double"}} selected{{end}}>Two pages</option>
+                <option value="continuous"{{if eq .Client.Mode "continuous"}} selected{{end}}>Continuous</option>
+                <option value="text"{{if eq .Client.Mode "text"}} selected{{end}}>Text mode</option>
+            </select>
+            <button id="btn-zoom-out" type="button" aria-label="Zoom out" title="Zoom out" data-i18n-aria="zoom_out">&#8722;</button>
+            <button id="btn-zoom-reset" class="zoom-reset" type="button" aria-label="Reset zoom" title="Reset zoom">100%</button>
+            <button id="btn-zoom-in" type="button" aria-label="Zoom in" title="Zoom in" data-i18n-aria="zoom_in">+</button>
+            <button id="btn-fit-width" type="button" aria-label="Fit width" title="Fit width" data-i18n-aria="fit_width">&#8596;</button>
+        </div>
+        <div class="control-group control-actions">
+            {{if .Client.ShowSearch}}<button id="btn-search" type="button" aria-label="Search" title="Search" data-i18n-aria="search">Search</button>{{end}}
+            <button id="btn-library" type="button" aria-label="Contents, pages, and bookmarks" title="Contents and pages">Contents</button>
+            <button id="btn-bookmark" type="button" aria-label="Bookmark this page" aria-pressed="false" title="Bookmark this page" data-i18n-aria="bookmark">Bookmark</button>
+            {{if .Client.ShowDownload}}
+                {{if and .Flipbook.Download.Enabled .Flipbook.Download.AllowPrint}}<button id="btn-print" type="button" aria-label="Print current page" title="Print current page">Print</button>{{end}}
+                {{if and .Flipbook.Download.Enabled .Flipbook.Download.AllowPDF}}<a id="btn-download" class="control-button" href="{{.Client.Endpoints.Download}}" aria-label="Download PDF" title="Download PDF" download>Download</a>{{end}}
+            {{end}}
+            {{if .Client.Share.Enabled}}<button id="btn-share" type="button" aria-label="Share" title="Share" data-i18n-aria="share">Share</button>{{end}}
+            <button id="btn-fullscreen" type="button" aria-label="Fullscreen" title="Fullscreen">Fullscreen</button>
+        </div>
+    </nav>
+    {{end}}
+    {{if .ShowBranding}}
+    <footer id="attribution" class="reader-attribution">
+        {{if .Branding.Attribution}}{{.Branding.Attribution}}{{else}}Created with Flipbook{{end}}
+    </footer>
+    {{end}}
+</div>
+
+<dialog id="search-dialog" class="reader-dialog search-dialog" aria-labelledby="search-title">
+    <div class="dialog-header">
+        <h2 id="search-title">Search this publication</h2>
+        <button type="button" class="dialog-close" data-close aria-label="Close">Close</button>
+    </div>
+    <div class="search-controls">
+        <label class="sr-only" for="search-input">Search this publication</label>
+        <input id="search-input" type="search" placeholder="Search this publication" autocomplete="off">
+        <button id="search-prev" type="button" aria-label="Previous result" disabled>Previous</button>
+        <button id="search-next" type="button" aria-label="Next result" disabled>Next</button>
+        <span id="search-status" role="status"></span>
+    </div>
+    <p id="search-unavailable" class="reader-notice" hidden>Text is not available for this publication.</p>
+    <ol id="search-results" class="search-results"></ol>
+</dialog>
+
+<dialog id="library-dialog" class="reader-dialog library-dialog" aria-labelledby="library-title">
+    <div class="dialog-header">
+        <h2 id="library-title">Explore this publication</h2>
+        <button type="button" class="dialog-close" data-close aria-label="Close">Close</button>
+    </div>
+    <div class="library-tabs" role="tablist" aria-label="Publication navigation">
+        <button id="tab-toc" type="button" role="tab" aria-selected="true" aria-controls="panel-toc" data-library-tab="toc">Contents</button>
+        <button id="tab-grid" type="button" role="tab" aria-selected="false" aria-controls="panel-grid" data-library-tab="grid">Pages</button>
+        <button id="tab-bookmarks" type="button" role="tab" aria-selected="false" aria-controls="panel-bookmarks" data-library-tab="bookmarks">Bookmarks</button>
+    </div>
+    <section id="panel-toc" role="tabpanel" aria-labelledby="tab-toc"><nav id="toc-list" aria-label="Table of contents"></nav></section>
+    <section id="panel-grid" role="tabpanel" aria-labelledby="tab-grid" hidden><div id="grid-container" class="reader-grid"></div></section>
+    <section id="panel-bookmarks" role="tabpanel" aria-labelledby="tab-bookmarks" hidden><div id="bookmarks-list"></div></section>
+</dialog>
+
+<dialog id="share-dialog" class="reader-dialog share-dialog" aria-labelledby="share-title">
+    <div class="dialog-header">
+        <h2 id="share-title">Share this publication</h2>
+        <button type="button" class="dialog-close" data-close aria-label="Close">Close</button>
+    </div>
+    <div class="library-tabs" role="tablist" aria-label="Sharing options">
+        <button id="tab-share" type="button" role="tab" aria-selected="true" aria-controls="panel-share" data-share-tab="share">Share</button>
+        <button id="tab-embed" type="button" role="tab" aria-selected="false" aria-controls="panel-embed" data-share-tab="embed">Embed</button>
+        <button id="tab-qr" type="button" role="tab" aria-selected="false" aria-controls="panel-qr" data-share-tab="qr">QR code</button>
+    </div>
+    <section id="panel-share" role="tabpanel" aria-labelledby="tab-share">
+        <label class="checkbox-label"><input id="share-from-page" type="checkbox"> Include current page (<span id="share-page-num">1</span>)</label>
+        <label for="share-link">Publication link</label>
+        <div class="copy-field"><input id="share-link" type="text" readonly><button id="copy-share" type="button">Copy</button></div>
+        <div class="share-actions">
+            <button id="share-native" type="button">Share using device</button>
+            <a id="share-email" href="#">Email</a>
+            <div id="share-links" class="social-links"></div>
+        </div>
+    </section>
+    <section id="panel-embed" role="tabpanel" aria-labelledby="tab-embed" hidden>
+        <div class="embed-settings">
+            <label>Width <input id="embed-width" type="number" min="200" max="3840" value="800"></label>
+            <label>Height <input id="embed-height" type="number" min="150" max="2160" value="600"></label>
+            <label>Aspect ratio <input id="embed-aspect" type="text" placeholder="16/9"></label>
+            <label>Start page <input id="embed-page" type="number" min="1" max="{{.Client.PreviewPages}}" value="{{.Client.StartPage}}"></label>
+            <label>Reading mode <select id="embed-mode"><option value="single">Single page</option><option value="double">Two pages</option><option value="continuous">Continuous</option><option value="text">Text mode</option></select></label>
+            <label>Background <input id="embed-background" type="color" value="#111827"></label>
+            <label class="checkbox-label"><input id="embed-responsive" type="checkbox" checked> Responsive</label>
+            <label class="checkbox-label"><input id="embed-toolbar" type="checkbox"{{if .Client.ShowToolbar}} checked{{end}}> Toolbar</label>
+            <label class="checkbox-label"><input id="embed-search" type="checkbox"{{if .Client.ShowSearch}} checked{{end}}> Search</label>
+            <label class="checkbox-label"><input id="embed-share" type="checkbox"{{if .Client.Share.Enabled}} checked{{end}}> Share</label>
+            <label class="checkbox-label"><input id="embed-download" type="checkbox"{{if .Client.ShowDownload}} checked{{end}}> Download</label>
+            <label class="checkbox-label"><input id="embed-branding" type="checkbox"{{if .Client.ShowBranding}} checked{{end}}> Branding</label>
+        </div>
+        <label for="embed-code">Embed code</label>
+        <div class="copy-field"><textarea id="embed-code" rows="4" readonly></textarea><button id="copy-embed" type="button">Copy</button></div>
+        <div id="embed-preview-container" class="embed-preview" hidden><iframe id="embed-preview" title="Embed preview" loading="lazy"></iframe></div>
+    </section>
+    <section id="panel-qr" role="tabpanel" aria-labelledby="tab-qr" hidden>
+        <img id="qr-image" class="qr-image" src="{{.QRSVGURL}}" alt="QR code linking to this publication" loading="lazy">
+        <div class="share-actions"><a id="qr-svg" href="{{.QRSVGURL}}" download>Download SVG</a><a id="qr-png" href="{{.QRPNGURL}}" download>Download PNG</a></div>
+    </section>
+</dialog>
+
+<dialog id="lead-dialog" class="reader-dialog gate-dialog" aria-labelledby="lead-title">
+    <div class="dialog-header"><h2 id="lead-title">Continue reading</h2>{{if .Client.Lead.Dismissible}}<button id="lead-dismiss" type="button" class="dialog-close">Not now</button>{{end}}</div>
+    <form id="lead-form">
+        <label for="lead-email">Email address</label>
+        <input id="lead-email" name="email" type="email" autocomplete="email" required maxlength="320">
+        <label class="checkbox-label"><input id="lead-consent" type="checkbox" required> <span>{{if .Flipbook.LeadGate.ConsentText}}{{.Flipbook.LeadGate.ConsentText}}{{else}}I agree to be contacted about this publication.{{end}}</span></label>
+        <button type="submit">Continue</button>
+        <p id="lead-error" class="form-error" role="alert" hidden></p>
+    </form>
+</dialog>
+
+<dialog id="purchase-dialog" class="reader-dialog gate-dialog" aria-labelledby="purchase-title">
+    <div class="dialog-header"><h2 id="purchase-title">Purchase to continue</h2></div>
+    <p id="purchase-description">Purchase this publication to unlock all pages and downloads.</p>
+    <p id="purchase-price" class="purchase-price"></p>
+    <button id="btn-checkout" type="button">Buy now</button>
+    <p id="purchase-error" class="form-error" role="alert" hidden></p>
+</dialog>
+
+<dialog id="video-dialog" class="reader-dialog video-dialog" aria-labelledby="video-title">
+    <div class="dialog-header"><h2 id="video-title">Video</h2><button type="button" class="dialog-close" data-close aria-label="Close">Close</button></div>
+    <div class="video-frame-container"><iframe id="video-frame" title="Embedded publication video" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div>
+</dialog>
+
+<dialog id="end-cta-dialog" class="reader-dialog gate-dialog" aria-labelledby="end-cta-title">
+    <div class="dialog-header"><h2 id="end-cta-title">You have reached the end</h2><button type="button" class="dialog-close" data-close aria-label="Close">Close</button></div>
+    <a id="end-cta-link" class="primary-action" href="#" target="_blank" rel="noopener nofollow">Continue</a>
+</dialog>
+
+<div id="reader-status" class="sr-only" role="status" aria-live="polite"></div>
+<div id="print-area" aria-hidden="true"><img id="print-image" alt=""></div>
+<noscript>
+    <style>body.viewer-page{height:auto;overflow:auto}.reader-app,.reader-dialog,#print-area{display:none!important}</style>
+    <article class="reader-nojs">
+        <h1>{{.Flipbook.Title}}</h1>
+        {{if .Flipbook.Description}}<p>{{.Flipbook.Description}}</p>{{end}}
+        {{range .Pages}}
+            {{if .Text}}<section><h2>Page {{.Number}}</h2><p>{{.Text}}</p></section>{{end}}
+        {{else}}<p>This publication requires JavaScript for page navigation.</p>
+        {{end}}
+    </article>
+</noscript>
+{{end}}

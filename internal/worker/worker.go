@@ -2,7 +2,12 @@ package worker
 
 import (
 	"context"
+	"errors"
+	"io"
 	"log"
+	"net/http"
+	"sync"
+	"time"
 
 	"github.com/jonradoff/flipbook/internal/converter"
 	"github.com/jonradoff/flipbook/internal/database"
@@ -10,75 +15,137 @@ import (
 	"github.com/jonradoff/flipbook/internal/storage"
 )
 
+var ErrJobCancelled = errors.New("job cancellation requested")
+
 type Job struct {
-	FlipbookID string
-	SourcePath string
+	FlipbookID     string
+	SourcePath     string
+	WorkspaceID    string
+	RevisionID     string
+	IdempotencyKey string
+	Priority       int
+	MaxAttempts    int
+}
+
+type workerDB interface {
+	EnqueueJob(ctx context.Context, job *models.Job) error
+	GetJob(ctx context.Context, jobID string) (*models.Job, error)
+	LeaseJobs(ctx context.Context, workerID string, types []models.JobType, limit int, leaseDuration time.Duration) ([]*models.Job, error)
+	HeartbeatJob(ctx context.Context, jobID, workerID string, leaseDuration time.Duration, progress int, message string) error
+	CompleteJob(ctx context.Context, jobID, workerID string) error
+	FailJob(ctx context.Context, jobID, workerID, failure string, baseBackoff, maxBackoff time.Duration) error
+	CancelJob(ctx context.Context, jobID string) error
+	RetryJob(ctx context.Context, jobID string) error
+
+	GetFlipbook(id string) (*models.Flipbook, error)
+	GetFlipbookInWorkspace(ctx context.Context, workspaceID, id string) (*models.Flipbook, error)
+	UpdateStatus(id, status, errorMsg string) error
+	UpdateConversionResult(id string, pageCount, width, height int) error
+	SetPublicationState(ctx context.Context, workspaceID, id string, state models.PublicationState, visibility models.Visibility, now time.Time) error
+	ListDuePublications(ctx context.Context, now time.Time) ([]*models.Flipbook, error)
+
+	CreateRevision(ctx context.Context, revision *models.Revision) error
+	GetRevision(ctx context.Context, workspaceID, revisionID string) (*models.Revision, error)
+	UpdateRevisionProgress(ctx context.Context, revisionID string, progress int, message string) error
+	MarkRevisionReady(ctx context.Context, revisionID, manifestKey string, pageCount int, warnings []string) error
+	MarkRevisionFailed(ctx context.Context, revisionID, errorMessage string) error
+	ActivateRevision(ctx context.Context, workspaceID, flipbookID, revisionID string) error
+
+	UploadToGridFS(ctx context.Context, filename string, r io.Reader) (string, error)
+	DownloadFromGridFS(ctx context.Context, fileIDHex string, w io.Writer) (int64, error)
+	SetGridFSFileID(id, gridfsFileID string) error
+
+	ListWebhookSubscriptions(ctx context.Context, workspaceID, eventType string, enabledOnly bool) ([]*models.WebhookSubscription, error)
+	LeaseWebhookDeliveries(ctx context.Context, workerID string, limit int, leaseDuration time.Duration) ([]*models.WebhookDelivery, error)
+	CompleteWebhookDelivery(ctx context.Context, deliveryID, workerID string, responseStatus int) error
+	FailWebhookDelivery(ctx context.Context, deliveryID, workerID, failure string, responseStatus int, baseBackoff time.Duration) error
+}
+
+type revisionStorage interface {
+	CreateRevisionStaging(id string) (string, error)
+	InstallRevision(id, stagingDir string, revision int) (string, error)
+	ActivateRevision(id string, revision int) error
+	CurrentRevision(id string) (int, error)
+	RevisionDir(id string, revision int) string
+	OriginalPath(id, ext string) string
+	DeleteRevision(id string, revision int) error
+	SyncRevision(ctx context.Context, id string, revision int, verify bool) ([]storage.ObjectInfo, error)
+}
+
+type stagedConverter interface {
+	ConvertStaged(ctx context.Context, srcPath, stagingDir string) (*converter.Result, error)
 }
 
 type Worker struct {
-	jobs    chan Job
-	db      *database.DB
-	storage *storage.Storage
-	conv    *converter.Converter
+	db      workerDB
+	storage revisionStorage
+	conv    stagedConverter
+	opts    Options
+	logger  *log.Logger
+
+	mu      sync.Mutex
+	started bool
+	cancel  context.CancelFunc
+	wg      sync.WaitGroup
 }
 
 func New(db *database.DB, store *storage.Storage, conv *converter.Converter) *Worker {
-	return &Worker{
-		jobs:    make(chan Job, 100),
-		db:      db,
-		storage: store,
-		conv:    conv,
-	}
-}
-
-func (w *Worker) Start(ctx context.Context) {
-	go func() {
-		for {
-			select {
-			case job := <-w.jobs:
-				w.processJob(ctx, job)
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
-}
-
-func (w *Worker) Enqueue(job Job) {
-	w.jobs <- job
-}
-
-func (w *Worker) processJob(ctx context.Context, job Job) {
-	log.Printf("[worker] Starting conversion for %s", job.FlipbookID)
-
-	if err := w.db.UpdateStatus(job.FlipbookID, models.StatusConverting, ""); err != nil {
-		log.Printf("[worker] Failed to update status: %v", err)
-		return
-	}
-
-	if err := w.storage.EnsureDirs(job.FlipbookID); err != nil {
-		log.Printf("[worker] Failed to create dirs: %v", err)
-		w.db.UpdateStatus(job.FlipbookID, models.StatusError, err.Error())
-		return
-	}
-
-	result, err := w.conv.Convert(
-		ctx,
-		job.SourcePath,
-		w.storage.PagesDir(job.FlipbookID),
-		w.storage.ThumbsDir(job.FlipbookID),
-	)
+	worker, err := NewWithOptions(db, store, conv, DefaultOptions())
 	if err != nil {
-		log.Printf("[worker] Conversion failed for %s: %v", job.FlipbookID, err)
-		w.db.UpdateStatus(job.FlipbookID, models.StatusError, err.Error())
-		return
+		panic(err)
 	}
+	return worker
+}
 
-	if err := w.db.UpdateConversionResult(job.FlipbookID, result.PageCount, result.Width, result.Height); err != nil {
-		log.Printf("[worker] Failed to save result: %v", err)
-		w.db.UpdateStatus(job.FlipbookID, models.StatusError, err.Error())
-		return
+func NewWithOptions(db *database.DB, store *storage.Storage, conv *converter.Converter, options Options) (*Worker, error) {
+	return newWorker(db, store, conv, options)
+}
+
+func newWorker(db workerDB, store revisionStorage, conv stagedConverter, options Options) (*Worker, error) {
+	options = normalizeOptions(options)
+	if err := validateOptions(options); err != nil {
+		return nil, err
 	}
+	if db == nil || store == nil || conv == nil {
+		return nil, errors.New("worker database, storage, and converter are required")
+	}
+	logger := options.Logger
+	if logger == nil {
+		logger = log.Default()
+	}
+	return &Worker{db: db, storage: store, conv: conv, opts: options, logger: logger}, nil
+}
 
-	log.Printf("[worker] Conversion complete for %s: %d pages", job.FlipbookID, result.PageCount)
+type progressState struct {
+	mu      sync.RWMutex
+	value   int
+	message string
+}
+
+func (p *progressState) Set(value int, message string) {
+	if value < 0 {
+		value = 0
+	}
+	if value > 100 {
+		value = 100
+	}
+	p.mu.Lock()
+	p.value = value
+	p.message = message
+	p.mu.Unlock()
+}
+
+func (p *progressState) Get() (int, string) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.value, p.message
+}
+
+func webhookHTTPClient(timeout time.Duration) *http.Client {
+	return &http.Client{
+		Timeout: timeout,
+		CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
 }

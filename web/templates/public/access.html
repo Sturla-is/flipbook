@@ -1,0 +1,43 @@
+{{define "public_access"}}
+<!DOCTYPE html>
+<html lang="{{.Language}}" dir="{{.Direction}}">
+<head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{if .Flipbook}}{{.Flipbook.Title}} — access required{{else}}Publication access required{{end}}</title>
+    <meta name="robots" content="noindex,nofollow,noarchive"><link rel="stylesheet" href="/static/css/viewer.css?v=10">
+</head>
+<body class="public-message-page">
+    <main class="public-message-card">
+        <h1>{{if eq .Code "password_required"}}This publication is password protected{{else}}A share link is required{{end}}</h1>
+        {{if .Flipbook}}<p>{{.Flipbook.Title}}</p>{{end}}
+        <form id="public-access-form" data-action="{{.AccessURL}}">
+            {{if eq .Code "password_required"}}
+                <label for="public-password">Password</label><input id="public-password" name="password" type="password" autocomplete="current-password" required autofocus>
+            {{else}}
+                <label for="public-share-token">Share token</label><input id="public-share-token" name="share_token" type="text" autocomplete="off" required autofocus>
+            {{end}}
+            <button type="submit">Unlock publication</button>
+            <p id="public-access-error" class="form-error" role="alert" hidden></p>
+        </form>
+    </main>
+    <script>
+    (function () {
+        var form = document.getElementById('public-access-form');
+        form.addEventListener('submit', function (event) {
+            event.preventDefault();
+            var button = form.querySelector('button[type="submit"]');
+            var error = document.getElementById('public-access-error');
+            button.disabled = true;
+            error.hidden = true;
+            var password = document.getElementById('public-password');
+            var token = document.getElementById('public-share-token');
+            fetch(form.dataset.action, {method: 'POST', headers: {'Content-Type': 'application/json'}, credentials: 'same-origin', body: JSON.stringify({password: password ? password.value : '', share_token: token ? token.value : ''})})
+                .then(function (response) { return response.json().then(function (data) { if (!response.ok) throw new Error(data.error || 'Access was not granted'); return data; }); })
+                .then(function () { window.location.reload(); })
+                .catch(function (reason) { error.textContent = reason.message; error.hidden = false; button.disabled = false; });
+        });
+    }());
+    </script>
+</body>
+</html>
+{{end}}

@@ -1,297 +1,258 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
 	"log"
 	"net/http"
-	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 	"unicode"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
+	"github.com/jonradoff/flipbook/internal/auth"
 	"github.com/jonradoff/flipbook/internal/database"
 	"github.com/jonradoff/flipbook/internal/models"
+	"github.com/jonradoff/flipbook/internal/publishing"
 	"github.com/jonradoff/flipbook/internal/storage"
 	"github.com/jonradoff/flipbook/internal/worker"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+)
+
+const maxUploadSize = 1 << 30
+
+var (
+	errAdminUnauthorized = errors.New("admin authentication required")
+	errAdminForbidden    = errors.New("insufficient admin permissions")
+	errAdminUnavailable  = errors.New("admin service is not configured")
 )
 
 type AdminHandler struct {
-	db      *database.DB
-	storage *storage.Storage
-	worker  *worker.Worker
-	tmpl    *template.Template
-	baseURL string
+	db         *database.DB
+	storage    *storage.Storage
+	worker     *worker.Worker
+	tmpl       *template.Template
+	baseURL    string
+	publisher  *publishing.Service
+	auth       *auth.Auth
+	httpClient *http.Client
+	maxBytes   int64
+	now        func() time.Time
+}
+
+type AdminOptions struct {
+	Publishing *publishing.Service
+	Auth       *auth.Auth
+	HTTPClient *http.Client
+	MaxBytes   int64
+	Now        func() time.Time
 }
 
 func NewAdminHandler(db *database.DB, store *storage.Storage, w *worker.Worker, tmpl *template.Template, baseURL string) *AdminHandler {
-	return &AdminHandler{db: db, storage: store, worker: w, tmpl: tmpl, baseURL: baseURL}
+	return NewAdminHandlerWithOptions(db, store, w, tmpl, baseURL, AdminOptions{})
 }
 
-func (h *AdminHandler) Index(w http.ResponseWriter, r *http.Request) {
-	flipbooks, err := h.db.ListFlipbooks()
-	if err != nil {
-		http.Error(w, "Failed to list flipbooks", 500)
-		return
+func NewAdminHandlerWithOptions(db *database.DB, store *storage.Storage, w *worker.Worker, tmpl *template.Template, baseURL string, options AdminOptions) *AdminHandler {
+	if options.HTTPClient == nil {
+		options.HTTPClient = &http.Client{Timeout: 45 * time.Second}
 	}
-	// Build first-thumb URL map keyed by flipbook ID
-	thumbMap := make(map[string]string)
-	for _, fb := range flipbooks {
-		if fb.Status == "ready" && fb.PageCount > 0 {
-			pageFmt := h.storage.DetectPageFormat(fb.ID)
-			thumbMap[fb.ID] = h.storage.ThumbImageURL(fb.ID, pageFmt, 1)
-		}
+	if options.MaxBytes <= 0 {
+		options.MaxBytes = maxUploadSize
 	}
-	h.tmpl.ExecuteTemplate(w, "admin_index", map[string]interface{}{
-		"Flipbooks": flipbooks,
-		"BaseURL":   h.baseURL,
-		"ThumbMap":  thumbMap,
-	})
+	if options.Now == nil {
+		options.Now = func() time.Time { return time.Now().UTC() }
+	}
+	return &AdminHandler{
+		db: db, storage: store, worker: w, tmpl: tmpl, baseURL: strings.TrimRight(baseURL, "/"),
+		publisher: options.Publishing, auth: options.Auth, httpClient: options.HTTPClient,
+		maxBytes: options.MaxBytes, now: options.Now,
+	}
 }
 
-func (h *AdminHandler) UploadForm(w http.ResponseWriter, r *http.Request) {
-	h.tmpl.ExecuteTemplate(w, "admin_upload", nil)
+type adminActor struct {
+	UserID      string
+	WorkspaceID string
+	Role        models.Role
+	APIKeyID    string
 }
 
-func (h *AdminHandler) Upload(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, 100<<20) // 100MB
-
-	if err := r.ParseMultipartForm(100 << 20); err != nil {
-		http.Error(w, "File too large (max 100MB)", 400)
-		return
+func adminActorFromRequest(r *http.Request, required models.Role) (adminActor, error) {
+	principal, ok := auth.PrincipalFromContext(r.Context())
+	if !ok || principal.User == nil || !principal.User.Active() {
+		return adminActor{}, errAdminUnauthorized
 	}
-
-	file, header, err := r.FormFile("file")
-	if err != nil {
-		http.Error(w, "No file provided", 400)
-		return
+	actor := adminActor{UserID: principal.User.ID, WorkspaceID: principal.WorkspaceID(), Role: principal.Role()}
+	if principal.APIKey != nil {
+		actor.APIKeyID = principal.APIKey.ID
 	}
-	defer file.Close()
-
-	ext := strings.ToLower(filepath.Ext(header.Filename))
-	if ext != ".pptx" && ext != ".ppt" && ext != ".pdf" {
-		http.Error(w, "Only .pptx, .ppt, and .pdf files are supported", 400)
-		return
+	if actor.WorkspaceID == "" || !actor.Role.Valid() {
+		return adminActor{}, errAdminForbidden
 	}
-
-	id := uuid.New().String()
-	title := r.FormValue("title")
-	if title == "" {
-		title = strings.TrimSuffix(header.Filename, filepath.Ext(header.Filename))
+	if required.Valid() && !actor.Role.AtLeast(required) {
+		return adminActor{}, errAdminForbidden
 	}
-	slug := slugify(title)
-	slug = h.db.EnsureUniqueSlug(slug)
+	return actor, nil
+}
 
-	srcPath, err := h.storage.SaveUpload(id, header.Filename, file)
-	if err != nil {
-		log.Printf("Failed to save upload: %v", err)
-		http.Error(w, "Failed to save file", 500)
-		return
-	}
-
-	fb := &models.Flipbook{
-		ID:       id,
-		Title:    title,
-		Slug:     slug,
-		Filename: header.Filename,
-		FileSize: header.Size,
-		Status:   models.StatusPending,
-	}
-	if err := h.db.CreateFlipbook(fb); err != nil {
-		log.Printf("Failed to create flipbook record: %v", err)
-		http.Error(w, "Failed to create flipbook", 500)
-		return
-	}
-
-	// Back up original to GridFS
-	go func() {
-		f, err := os.Open(srcPath)
+func (h *AdminHandler) baseData(w http.ResponseWriter, r *http.Request, actor adminActor, active string) (map[string]any, error) {
+	csrfToken := auth.CSRFTokenFromContext(r.Context())
+	if csrfToken == "" && h.auth != nil {
+		var err error
+		csrfToken, err = h.auth.CSRFToken(w, r)
 		if err != nil {
-			log.Printf("GridFS: failed to open original for %s: %v", id, err)
-			return
+			return nil, err
 		}
-		defer f.Close()
-		gridfsID, err := h.db.UploadToGridFS(context.Background(), header.Filename, f)
+	}
+	data := map[string]any{
+		"PageTitle":   "Flipbook admin",
+		"ActiveNav":   active,
+		"CSRFToken":   csrfToken,
+		"WorkspaceID": actor.WorkspaceID,
+		"CurrentRole": actor.Role,
+		"CanEdit":     actor.Role.CanEdit(),
+		"CanPublish":  actor.Role.CanPublish(),
+		"CanManage":   actor.Role.CanManage(),
+		"IsOwner":     actor.Role == models.RoleOwner,
+		"Notice":      boundedFlash(r.URL.Query().Get("notice")),
+		"Error":       boundedFlash(r.URL.Query().Get("error")),
+	}
+	if h.db != nil && actor.WorkspaceID != "" {
+		workspace, err := h.db.GetWorkspace(r.Context(), actor.WorkspaceID)
 		if err != nil {
-			log.Printf("GridFS: upload failed for %s: %v", id, err)
-			return
+			return nil, err
 		}
-		if err := h.db.SetGridFSFileID(id, gridfsID); err != nil {
-			log.Printf("GridFS: failed to save file ID for %s: %v", id, err)
-			return
-		}
-		log.Printf("GridFS: backed up %s (%s)", id, header.Filename)
-	}()
-
-	h.worker.Enqueue(worker.Job{FlipbookID: id, SourcePath: srcPath})
-
-	// Return JSON for AJAX requests so the client can track progress
-	if r.Header.Get("X-Requested-With") == "XMLHttpRequest" {
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{
-			"id":   id,
-			"slug": slug,
-		})
-		return
+		data["Workspace"] = workspace
 	}
-
-	http.Redirect(w, r, "/admin/flipbooks/"+id, http.StatusSeeOther)
+	return data, nil
 }
 
-func (h *AdminHandler) Detail(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
-	fb, err := h.db.GetFlipbook(id)
+func boundedFlash(value string) string {
+	value = strings.TrimSpace(value)
+	if len(value) > 500 {
+		return value[:500]
+	}
+	return value
+}
+
+func (h *AdminHandler) render(w http.ResponseWriter, r *http.Request, actor adminActor, active, name string, status int, data map[string]any) error {
+	if h.tmpl == nil {
+		return errAdminUnavailable
+	}
+	base, err := h.baseData(w, r, actor, active)
 	if err != nil {
-		http.Error(w, "Flipbook not found", 404)
+		return err
+	}
+	for key, value := range data {
+		base[key] = value
+	}
+	var output bytes.Buffer
+	if err := h.tmpl.ExecuteTemplate(&output, name, base); err != nil {
+		return fmt.Errorf("render %s: %w", name, err)
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("X-Robots-Tag", "noindex, nofollow, noarchive")
+	if status != 0 {
+		w.WriteHeader(status)
+	}
+	_, err = w.Write(output.Bytes())
+	return err
+}
+
+func (h *AdminHandler) renderError(w http.ResponseWriter, r *http.Request, err error) {
+	status, message := adminErrorMessage(err)
+	if status >= http.StatusInternalServerError {
+		log.Printf("Admin request failed: %v", err)
+	}
+	if adminWantsJSON(r) {
+		adminJSONError(w, message, status)
 		return
 	}
-
-	views := h.db.GetViewCount(id)
-
-	// Build page URLs for thumbnails
-	pageFmt := h.storage.DetectPageFormat(id)
-	var thumbs []string
-	for i := 1; i <= fb.PageCount; i++ {
-		thumbs = append(thumbs, h.storage.ThumbImageURL(id, pageFmt, i))
-	}
-
-	h.tmpl.ExecuteTemplate(w, "admin_detail", map[string]interface{}{
-		"Flipbook":  fb,
-		"Thumbs":    thumbs,
-		"Views":     views,
-		"BaseURL":   h.baseURL,
-		"EmbedCode": embedCode(h.baseURL, fb.Slug),
-	})
+	http.Error(w, message, status)
 }
 
-func (h *AdminHandler) Delete(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
-	fb, _ := h.db.GetFlipbook(id)
-	h.db.DeleteFlipbook(id)
-	h.storage.DeleteFlipbook(id)
-	if fb != nil && fb.GridFSFileID != "" {
-		go func() {
-			if err := h.db.DeleteFromGridFS(context.Background(), fb.GridFSFileID); err != nil {
-				log.Printf("GridFS: cleanup failed for %s: %v", id, err)
-			}
-		}()
+func adminErrorMessage(err error) (int, string) {
+	if err == nil {
+		return http.StatusOK, ""
 	}
-	http.Redirect(w, r, "/admin", http.StatusSeeOther)
+	var publishingError *publishing.HTTPError
+	if errors.As(err, &publishingError) {
+		return publishingError.Status, publishingError.Message
+	}
+	var inputError *adminInputError
+	if errors.As(err, &inputError) {
+		return http.StatusBadRequest, inputError.message
+	}
+	switch {
+	case errors.Is(err, errAdminUnauthorized), errors.Is(err, auth.ErrUnauthorized):
+		return http.StatusUnauthorized, "Authentication is required."
+	case errors.Is(err, errAdminForbidden), errors.Is(err, auth.ErrForbidden), errors.Is(err, database.ErrForbidden):
+		return http.StatusForbidden, "You do not have permission to perform this action."
+	case errors.Is(err, errAdminUnavailable), errors.Is(err, auth.ErrNotConfigured):
+		return http.StatusServiceUnavailable, "This action requires final admin service wiring."
+	case errors.Is(err, mongo.ErrNoDocuments):
+		return http.StatusNotFound, "The requested resource was not found."
+	case errors.Is(err, database.ErrLastOwner):
+		return http.StatusConflict, "A workspace must retain at least one owner."
+	case errors.Is(err, database.ErrConflict), errors.Is(err, storage.ErrRevisionActive), errors.Is(err, storage.ErrRevisionExists):
+		return http.StatusConflict, "The requested change conflicts with the current resource state."
+	case errors.Is(err, storage.ErrUploadTooLarge):
+		return http.StatusRequestEntityTooLarge, "The uploaded file exceeds the configured size limit."
+	case errors.Is(err, storage.ErrInvalidUpload):
+		return http.StatusBadRequest, "The uploaded filename or file content is invalid."
+	case errors.Is(err, context.Canceled):
+		return 499, "The request was cancelled."
+	case errors.Is(err, context.DeadlineExceeded):
+		return http.StatusGatewayTimeout, "The operation timed out. Check its status before retrying."
+	default:
+		return http.StatusInternalServerError, "The operation could not be completed. Try again or review the item status."
+	}
 }
 
-func (h *AdminHandler) Settings(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
-	title := r.FormValue("title")
-	desc := r.FormValue("description")
-	if title != "" {
-		h.db.UpdateFlipbook(id, title, desc)
+func adminWantsJSON(r *http.Request) bool {
+	return r.Header.Get("X-Requested-With") == "XMLHttpRequest" || strings.Contains(r.Header.Get("Accept"), "application/json")
+}
+
+func (h *AdminHandler) audit(r *http.Request, actor adminActor, action, resourceType, resourceID, outcome string, metadata map[string]string) {
+	if h.db == nil {
+		return
 	}
-	http.Redirect(w, r, "/admin/flipbooks/"+id, http.StatusSeeOther)
+	if outcome == "" {
+		outcome = "success"
+	}
+	requestID := strings.TrimSpace(r.Header.Get("X-Request-ID"))
+	if len(requestID) > 128 {
+		requestID = requestID[:128]
+	}
+	event := &models.AuditEvent{
+		WorkspaceID: actor.WorkspaceID, ActorUserID: actor.UserID, ActorAPIKeyID: actor.APIKeyID,
+		Action: action, ResourceType: resourceType, ResourceID: resourceID, Outcome: outcome,
+		RequestID: requestID, Metadata: metadata, CreatedAt: h.now().UTC(),
+	}
+	if err := h.db.RecordAuditEvent(r.Context(), event); err != nil {
+		log.Printf("Admin audit %s failed: %v", action, err)
+	}
+}
+
+func adminJSONResponse(w http.ResponseWriter, status int, data any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	if status != 0 {
+		w.WriteHeader(status)
+	}
+	_ = json.NewEncoder(w).Encode(data)
+}
+
+func adminJSONError(w http.ResponseWriter, message string, status int) {
+	adminJSONResponse(w, status, map[string]string{"error": message})
 }
 
 func embedCode(baseURL, slug string) string {
-	return `<iframe src="` + baseURL + `/embed/` + slug + `" width="800" height="600" frameborder="0" allowfullscreen style="border:none;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1);"></iframe>`
-}
-
-// Google Slides URL pattern: extract presentation ID
-var googleSlidesRe = regexp.MustCompile(`/presentation/d/([a-zA-Z0-9_-]+)`)
-
-func (h *AdminHandler) ImportURL(w http.ResponseWriter, r *http.Request) {
-	url := strings.TrimSpace(r.FormValue("url"))
-	if url == "" {
-		http.Error(w, "No URL provided", 400)
-		return
-	}
-
-	// Extract Google Slides presentation ID
-	matches := googleSlidesRe.FindStringSubmatch(url)
-	if len(matches) < 2 {
-		http.Error(w, "Invalid Google Slides URL. Use a URL like: https://docs.google.com/presentation/d/PRESENTATION_ID/edit", 400)
-		return
-	}
-	presentationID := matches[1]
-
-	// Download as PDF via Google's export endpoint
-	exportURL := fmt.Sprintf("https://docs.google.com/presentation/d/%s/export/pdf", presentationID)
-	resp, err := http.Get(exportURL)
-	if err != nil {
-		log.Printf("Failed to download Google Slides: %v", err)
-		http.Error(w, "Failed to download presentation. Make sure the presentation is publicly accessible (Anyone with the link).", 400)
-		return
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		http.Error(w, "Failed to download presentation. Make sure the presentation is publicly accessible (Anyone with the link).", 400)
-		return
-	}
-
-	id := uuid.New().String()
-	title := r.FormValue("title")
-	if title == "" {
-		title = "Google Slides Import"
-	}
-	slug := slugify(title)
-	slug = h.db.EnsureUniqueSlug(slug)
-
-	// Save downloaded PDF
-	srcPath, err := h.storage.SaveUpload(id, "import.pdf", resp.Body)
-	if err != nil {
-		log.Printf("Failed to save downloaded PDF: %v", err)
-		http.Error(w, "Failed to save file", 500)
-		return
-	}
-
-	fb := &models.Flipbook{
-		ID:       id,
-		Title:    title,
-		Slug:     slug,
-		Filename: "import.pdf",
-		Status:   models.StatusPending,
-	}
-	if err := h.db.CreateFlipbook(fb); err != nil {
-		log.Printf("Failed to create flipbook record: %v", err)
-		http.Error(w, "Failed to create flipbook", 500)
-		return
-	}
-
-	// Back up original to GridFS
-	go func() {
-		f, err := os.Open(srcPath)
-		if err != nil {
-			log.Printf("GridFS: failed to open original for %s: %v", id, err)
-			return
-		}
-		defer f.Close()
-		gridfsID, err := h.db.UploadToGridFS(context.Background(), "import.pdf", f)
-		if err != nil {
-			log.Printf("GridFS: upload failed for %s: %v", id, err)
-			return
-		}
-		if err := h.db.SetGridFSFileID(id, gridfsID); err != nil {
-			log.Printf("GridFS: failed to save file ID for %s: %v", id, err)
-			return
-		}
-		log.Printf("GridFS: backed up %s (import.pdf)", id)
-	}()
-
-	h.worker.Enqueue(worker.Job{FlipbookID: id, SourcePath: srcPath})
-
-	if r.Header.Get("X-Requested-With") == "XMLHttpRequest" {
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{
-			"id":   id,
-			"slug": slug,
-		})
-		return
-	}
-
-	http.Redirect(w, r, "/admin/flipbooks/"+id, http.StatusSeeOther)
+	return `<iframe src="` + baseURL + `/embed/` + slug + `" width="800" height="600" frameborder="0" allowfullscreen title="Interactive flipbook" style="border:none;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1);"></iframe>`
 }
 
 var nonAlphanumeric = regexp.MustCompile(`[^a-z0-9]+`)
@@ -310,4 +271,13 @@ func slugify(s string) string {
 		s = "flipbook"
 	}
 	return s
+}
+
+func adminDecodeJSON(r *http.Request, destination any) error {
+	decoder := json.NewDecoder(http.MaxBytesReader(nil, r.Body, 1<<20))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(destination); err != nil {
+		return fmt.Errorf("decode admin request: %w", err)
+	}
+	return nil
 }

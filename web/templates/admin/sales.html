@@ -1,0 +1,135 @@
+{{define "admin_sales"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex,nofollow">
+    <title>Sales and customers - Flipbook</title>
+    <link rel="stylesheet" href="/static/css/sales.css">
+</head>
+<body>
+<nav class="sales-nav" aria-label="Administration">
+    <a class="sales-brand" href="/admin">Flipbook</a>
+    <div>
+        <a href="/admin">Library</a>
+        <a href="/admin/analytics">Analytics</a>
+        <a href="/admin/leads">Leads</a>
+        <a href="/admin/sales" aria-current="page">Sales</a>
+    </div>
+</nav>
+<main class="sales-admin" id="main-content">
+    <h1>Sales and customers</h1>
+    <p class="sales-muted">Verified purchases, refunds, purchaser access, and customer reporting.</p>
+    {{if .Notice}}<div class="sales-notice sales-notice-success" role="status">{{.Notice}}</div>{{end}}
+    {{if not .Configured}}<div class="sales-notice" role="status">Stripe is not configured. New checkout and provider refunds are unavailable; existing purchase records and access revocation remain available.</div>{{end}}
+    {{if .Truncated}}<div class="sales-notice" role="status">This report reached its row limit. Narrow the date or publication filters before relying on totals.</div>{{end}}
+
+    <section class="sales-panel" aria-labelledby="filter-title">
+        <h2 id="filter-title">Report filters</h2>
+        <form class="sales-filter" method="get" action="/admin/sales">
+            <label>From <input type="date" name="from" value="{{.From}}"></label>
+            <label>To <input type="date" name="to" value="{{.To}}"></label>
+            <label>Publication ID <input type="text" name="flipbook_id" value="{{.FlipbookID}}" maxlength="128"></label>
+            <label>Status
+                <select name="status">
+                    <option value="">All statuses</option>
+                    <option value="pending" {{if eq .Status "pending"}}selected{{end}}>Pending</option>
+                    <option value="paid" {{if eq .Status "paid"}}selected{{end}}>Paid</option>
+                    <option value="refunded" {{if eq .Status "refunded"}}selected{{end}}>Refunded</option>
+                    <option value="cancelled" {{if eq .Status "cancelled"}}selected{{end}}>Cancelled</option>
+                    <option value="failed" {{if eq .Status "failed"}}selected{{end}}>Failed</option>
+                </select>
+            </label>
+            <button class="sales-button" type="submit">Apply filters</button>
+        </form>
+        <div class="sales-export" aria-label="CSV exports">
+            <a class="sales-button" href="/admin/sales.csv?from={{.From}}&amp;to={{.To}}&amp;flipbook_id={{.FlipbookID}}&amp;status={{.Status}}">Export orders CSV</a>
+            <a class="sales-button" href="/admin/sales/customers.csv?from={{.From}}&amp;to={{.To}}&amp;flipbook_id={{.FlipbookID}}&amp;status={{.Status}}">Export customers CSV</a>
+        </div>
+    </section>
+
+    {{if .Totals}}
+    <section class="sales-totals" aria-label="Sales totals">
+        {{range .Totals}}
+        <article class="sales-total">
+            <h2>{{.Currency}} totals</h2>
+            <dl>
+                <dt>Completed orders</dt><dd>{{.Orders}}</dd>
+                <dt>Gross</dt><dd>{{.Gross}} {{.Currency}}</dd>
+                <dt>Refunded</dt><dd>{{.Refunded}} {{.Currency}}</dd>
+                <dt><strong>Net</strong></dt><dd><strong>{{.Net}} {{.Currency}}</strong></dd>
+            </dl>
+        </article>
+        {{end}}
+    </section>
+    {{else}}
+    <p class="sales-empty">No completed purchases match these filters.</p>
+    {{end}}
+
+    <section aria-labelledby="orders-title">
+        <h2 id="orders-title">Orders</h2>
+        <div class="sales-table-wrap">
+            <table class="sales-table">
+                <caption>Purchase orders</caption>
+                <thead><tr><th scope="col">Order</th><th scope="col">Customer</th><th scope="col">Publication</th><th scope="col">Amount</th><th scope="col">Status</th><th scope="col">Created</th><th scope="col">Actions</th></tr></thead>
+                <tbody>
+                {{range .Orders}}
+                    <tr>
+                        <td>{{.ID}}</td>
+                        <td>{{.Email}}</td>
+                        <td>{{.Publication}}</td>
+                        <td>{{.Amount}} {{.Currency}}</td>
+                        <td><span class="sales-status-badge">{{.Status}}</span></td>
+                        <td>{{.CreatedAt}}</td>
+                        <td>
+                        {{if or .CanRefund .CanRevoke}}
+                            <details>
+                                <summary>Manage order</summary>
+                                {{if .CanRefund}}
+                                <form method="post" action="/admin/sales/{{.ID}}/refund" data-confirm="Refund this purchase and revoke its access? This cannot be undone.">
+                                    {{if $.CSRFToken}}<input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">{{end}}
+                                    <label>Refund reason <input class="sales-reason" type="text" name="reason" maxlength="500" value="Customer refund"></label>
+                                    <button class="sales-button sales-button-danger" type="submit">Refund and revoke</button>
+                                </form>
+                                {{end}}
+                                {{if .CanRevoke}}
+                                <form method="post" action="/admin/sales/{{.ID}}/revoke" data-confirm="Revoke this purchaser's access without issuing a refund?">
+                                    {{if $.CSRFToken}}<input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">{{end}}
+                                    <label>Revocation reason <input class="sales-reason" type="text" name="reason" maxlength="500" value="Access revoked by administrator"></label>
+                                    <button class="sales-button" type="submit">Revoke access only</button>
+                                </form>
+                                {{end}}
+                            </details>
+                        {{else}}<span class="sales-muted">No actions</span>{{end}}
+                        </td>
+                    </tr>
+                {{else}}
+                    <tr><td colspan="7" class="sales-empty">No orders match these filters.</td></tr>
+                {{end}}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section aria-labelledby="customers-title">
+        <h2 id="customers-title">Customers</h2>
+        <div class="sales-table-wrap">
+            <table class="sales-table">
+                <caption>Customer totals by currency</caption>
+                <thead><tr><th scope="col">Email</th><th scope="col">Orders</th><th scope="col">Publications</th><th scope="col">Gross</th><th scope="col">Refunded</th><th scope="col">Net</th><th scope="col">Last purchase</th></tr></thead>
+                <tbody>
+                {{range .Customers}}
+                    <tr><td>{{.Email}}</td><td>{{.Orders}}</td><td>{{.Publications}}</td><td>{{.Gross}} {{.Currency}}</td><td>{{.Refunded}} {{.Currency}}</td><td>{{.Net}} {{.Currency}}</td><td>{{.LastPurchase}}</td></tr>
+                {{else}}
+                    <tr><td colspan="7" class="sales-empty">No customers match these filters.</td></tr>
+                {{end}}
+                </tbody>
+            </table>
+        </div>
+    </section>
+</main>
+<script src="/static/js/sales.js" defer></script>
+</body>
+</html>
+{{end}}

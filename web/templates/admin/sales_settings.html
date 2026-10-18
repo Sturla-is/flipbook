@@ -1,0 +1,54 @@
+{{define "admin_sales_settings"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex,nofollow">
+    <title>Sales settings - {{.Flipbook.Title}}</title>
+    <link rel="stylesheet" href="/static/css/sales.css">
+</head>
+<body>
+<nav class="sales-nav" aria-label="Administration">
+    <a class="sales-brand" href="/admin">Flipbook</a>
+    <div><a href="/admin">Library</a><a href="/admin/sales">Sales</a></div>
+</nav>
+<main class="sales-admin" id="main-content">
+    <a class="sales-back" href="/admin/flipbooks/{{.Flipbook.ID}}">&larr; Back to publication</a>
+    <h1>Digital sales settings</h1>
+    <p class="sales-muted">{{.Flipbook.Title}} &middot; {{.Flipbook.PageCount}} pages</p>
+    {{if .Saved}}<div class="sales-notice sales-notice-success" role="status">Sales settings saved.</div>{{end}}
+    {{if not .Configured}}<div class="sales-notice" role="status">Stripe is not configured. You can save pricing now, but checkout remains unavailable.</div>{{end}}
+    <section class="sales-panel">
+        <form method="post" action="/admin/flipbooks/{{.Flipbook.ID}}/sales" data-sales-mutation>
+            {{if .CSRFToken}}<input type="hidden" name="csrf_token" value="{{.CSRFToken}}">{{end}}
+            <label class="sales-checkbox"><input type="checkbox" name="enabled" {{if .Flipbook.Sales.Enabled}}checked{{end}}> Enable paid access</label>
+            <p class="sales-help">Readers can access preview pages for free. Paid pages and downloads require a verified purchase entitlement.</p>
+            <div class="sales-form-grid">
+                <div class="sales-field">
+                    <label for="sales-price">Price</label>
+                    <input id="sales-price" name="price" type="text" inputmode="decimal" value="{{.Price}}" required>
+                </div>
+                <div class="sales-field">
+                    <label for="sales-currency">Currency</label>
+                    <input id="sales-currency" name="currency" type="text" value="{{.Flipbook.Sales.Currency}}" pattern="[A-Za-z]{3}" maxlength="3" autocapitalize="characters" required aria-describedby="currency-help">
+                    <p id="currency-help" class="sales-help">Three-letter ISO code, such as USD or EUR.</p>
+                </div>
+                <div class="sales-field">
+                    <label for="sales-preview">Free preview pages</label>
+                    <input id="sales-preview" name="preview_pages" type="number" min="0" max="{{.Flipbook.PageCount}}" step="1" value="{{.Flipbook.Sales.PreviewPages}}" required>
+                </div>
+                <div class="sales-field">
+                    <label for="sales-price-id">Stripe price ID <span class="sales-optional">(optional)</span></label>
+                    <input id="sales-price-id" name="stripe_price_id" type="text" value="{{.Flipbook.Sales.StripePriceID}}" maxlength="255" aria-describedby="price-id-help">
+                    <p id="price-id-help" class="sales-help">If set, its amount and currency must exactly match these settings.</p>
+                </div>
+            </div>
+            <button class="sales-button sales-button-primary" type="submit">Save sales settings</button>
+        </form>
+    </section>
+</main>
+<script src="/static/js/sales.js" defer></script>
+</body>
+</html>
+{{end}}

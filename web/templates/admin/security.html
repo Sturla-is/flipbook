@@ -1,0 +1,63 @@
+{{define "admin_security"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>{{template "admin_head" .}}</head>
+<body>
+{{template "admin_nav" .}}
+<main class="container container-wide" id="main-content">
+    <div class="page-header"><div><h1>API keys and audit</h1><p class="text-muted">Issue scoped, expiring credentials and review workspace activity.</p></div></div>
+    {{template "admin_team_nav" .}}
+    {{template "admin_flash" .}}
+
+    {{if .NewAPIKeySecret}}
+    <section class="flash flash-success secret-reveal" aria-labelledby="api-key-created">
+        <h2 id="api-key-created">API key “{{.NewAPIKey.Name}}” created</h2>
+        <p>Copy the secret now. Only its hash is stored, so it cannot be shown again.</p>
+        <div class="form-group"><label for="new-api-key">API key secret</label><div class="copy-row"><input type="text" id="new-api-key" value="{{.NewAPIKeySecret}}" readonly autocomplete="off"><button type="button" class="btn" data-copy-target="new-api-key">Copy</button></div></div>
+        <p class="field-help">Send it as a Bearer token over HTTPS. Do not store it in source control, URLs, or logs.</p>
+    </section>
+    {{end}}
+
+    <section class="panel" aria-labelledby="create-key-heading">
+        <h2 id="create-key-heading">Create API key</h2>
+        <form method="POST" action="/admin/security/api-keys" class="form-grid">
+            {{template "admin_csrf" .}}
+            <div class="form-group"><label for="api-key-name">Name</label><input type="text" id="api-key-name" name="name" maxlength="200" required placeholder="Reporting automation"></div>
+            <div class="form-group"><label for="api-key-expiry">Expiry (UTC)</label><input type="datetime-local" id="api-key-expiry" name="expires_at"><p class="field-help">Leave blank for no expiry. Prefer expiring credentials.</p></div>
+            <fieldset class="form-group form-span-2"><legend>Scopes</legend>
+                {{range .Scopes}}<label class="checkbox-label"><input type="checkbox" name="scopes" value="{{.}}"> <code>{{.}}</code></label>{{end}}
+            </fieldset>
+            <div class="form-actions"><button type="submit" class="btn btn-primary">Create scoped key</button></div>
+        </form>
+    </section>
+
+    <section class="panel" aria-labelledby="keys-heading">
+        <h2 id="keys-heading">Workspace API keys</h2>
+        <div class="table-scroll"><table class="data-table"><caption class="sr-only">Issued API keys and revocation</caption><thead><tr><th scope="col">Name</th><th scope="col">Prefix</th><th scope="col">Scopes</th><th scope="col">Created</th><th scope="col">Expiry / last use</th><th scope="col">Status</th><th scope="col">Action</th></tr></thead><tbody>
+        {{range .APIKeys}}<tr>
+            <th scope="row">{{.Name}}</th><td><code>{{.Prefix}}…</code></td><td>{{range .Scopes}}<code class="tag">{{.}}</code>{{end}}</td><td>{{.CreatedAt.Format "2006-01-02 15:04"}}</td><td>{{if .ExpiresAt}}Expires {{.ExpiresAt.Format "2006-01-02 15:04"}}{{else}}No expiry{{end}}{{if .LastUsedAt}}<span class="table-secondary">Used {{.LastUsedAt.Format "2006-01-02 15:04"}}</span>{{else}}<span class="table-secondary">Never used</span>{{end}}</td><td>{{if .RevokedAt}}<span class="badge badge-error">Revoked</span>{{else}}<span class="badge badge-ready">Issued</span>{{end}}</td><td>{{if not .RevokedAt}}<form method="POST" action="/admin/security/api-keys/{{.ID}}/revoke" data-confirm="Revoke {{.Name}}? Clients using this key will lose access.">{{template "admin_csrf" $}}<button type="submit" class="btn btn-sm btn-danger">Revoke</button></form>{{end}}</td>
+        </tr>{{else}}<tr><td colspan="7">No API keys have been issued.</td></tr>{{end}}
+        </tbody></table></div>
+    </section>
+
+    <section class="panel" aria-labelledby="audit-heading">
+        <h2 id="audit-heading">Audit history</h2>
+        <form method="GET" action="/admin/security" class="filter-grid audit-filter">
+            <div class="form-group"><label for="audit-action">Action</label><input type="text" id="audit-action" name="action" value="{{.AuditFilters.action}}" placeholder="publication.publish"></div>
+            <div class="form-group"><label for="audit-resource-type">Resource type</label><input type="text" id="audit-resource-type" name="resource_type" value="{{.AuditFilters.resource_type}}" placeholder="flipbook"></div>
+            <div class="form-group"><label for="audit-resource-id">Resource ID</label><input type="text" id="audit-resource-id" name="resource_id" value="{{.AuditFilters.resource_id}}"></div>
+            <div class="form-group"><label for="audit-from">From (UTC)</label><input type="datetime-local" id="audit-from" name="from" value="{{.AuditFilters.from}}"></div>
+            <div class="form-group"><label for="audit-to">Before (UTC)</label><input type="datetime-local" id="audit-to" name="to" value="{{.AuditFilters.to}}"></div>
+            <div class="form-group"><label for="audit-limit">Result limit</label><select id="audit-limit" name="limit">{{$limit := .AuditLimit}}<option value="25" {{if eq $limit 25}}selected{{end}}>25</option><option value="50" {{if eq $limit 50}}selected{{end}}>50</option><option value="100" {{if eq $limit 100}}selected{{end}}>100</option><option value="200" {{if eq $limit 200}}selected{{end}}>200</option></select></div>
+            <div class="filter-actions"><button type="submit" class="btn">Filter audit</button><a href="/admin/security" class="btn">Reset</a></div>
+        </form>
+        <p class="field-help">Results are newest first. Narrow filters to investigate older activity; secrets and raw IP addresses are not displayed.</p>
+        <div class="table-scroll"><table class="data-table audit-table"><caption class="sr-only">Workspace audit events</caption><thead><tr><th scope="col">Time (UTC)</th><th scope="col">Action</th><th scope="col">Actor</th><th scope="col">Resource</th><th scope="col">Outcome</th><th scope="col">Metadata</th></tr></thead><tbody>
+        {{range .AuditEvents}}<tr><td>{{.CreatedAt.Format "2006-01-02 15:04:05"}}</td><th scope="row"><code>{{.Action}}</code></th><td>{{if .ActorUserID}}User: {{.ActorUserID}}{{end}}{{if .ActorAPIKeyID}}<span class="table-secondary">API key: {{.ActorAPIKeyID}}</span>{{end}}</td><td>{{.ResourceType}}{{if .ResourceID}}<span class="table-secondary">{{.ResourceID}}</span>{{end}}</td><td><span class="badge badge-{{.Outcome}}">{{.Outcome}}</span></td><td>{{if .Metadata}}<dl class="metadata-list">{{range $key, $value := .Metadata}}<div><dt>{{$key}}</dt><dd>{{$value}}</dd></div>{{end}}</dl>{{else}}<span class="text-muted">—</span>{{end}}</td></tr>{{else}}<tr><td colspan="6">No audit events match these filters.</td></tr>{{end}}
+        </tbody></table></div>
+    </section>
+</main>
+{{template "admin_scripts" .}}
+</body>
+</html>
+{{end}}

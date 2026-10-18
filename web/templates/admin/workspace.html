@@ -1,0 +1,88 @@
+{{define "admin_workspace"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>{{template "admin_head" .}}</head>
+<body>
+{{template "admin_nav" .}}
+<main class="container container-wide" id="main-content">
+    <div class="page-header"><div><h1>Workspace settings</h1><p class="text-muted">Defaults apply to new uploads; existing publication settings are not overwritten.</p></div></div>
+    {{template "admin_team_nav" .}}
+    {{template "admin_flash" .}}
+    {{$workspace := .CurrentWorkspace}}
+
+    <form method="POST" action="/admin/workspace/settings">
+        {{template "admin_csrf" .}}
+        <div class="sticky-save"><strong>{{$workspace.Name}}</strong><button type="submit" class="btn btn-primary">Save workspace settings</button></div>
+        <details class="panel settings-section" open><summary>Identity and publication defaults</summary><div class="settings-body form-grid">
+            <div class="form-group"><label for="workspace-name">Workspace name</label><input type="text" id="workspace-name" name="name" value="{{$workspace.Name}}" maxlength="200" required></div>
+            <div class="form-group"><label for="workspace-slug">Workspace slug</label><input type="text" id="workspace-slug" value="{{$workspace.Slug}}" readonly><p class="field-help">The stable workspace identifier is not editable here.</p></div>
+            <div class="form-group"><label for="default-visibility">Default visibility</label><select id="default-visibility" name="default_visibility">{{$visibility := $workspace.Settings.DefaultVisibility}}<option value="public" {{if eq $visibility "public"}}selected{{end}}>Public</option><option value="unlisted" {{if eq $visibility "unlisted"}}selected{{end}}>Unlisted</option><option value="private" {{if eq $visibility "private"}}selected{{end}}>Private</option><option value="team" {{if eq $visibility "team"}}selected{{end}}>Team</option></select></div>
+            <label class="checkbox-label"><input type="checkbox" name="require_review" {{if $workspace.Settings.RequirePublicationReview}}checked{{end}}> Require admin approval before publication</label>
+            <fieldset class="form-group form-span-2"><legend>Default reader downloads</legend>
+                <label class="checkbox-label"><input type="checkbox" name="default_download_enabled" {{if $workspace.Settings.DefaultDownload.Enabled}}checked{{end}}> Enable downloads</label>
+                <label class="checkbox-label"><input type="checkbox" name="default_download_original" {{if $workspace.Settings.DefaultDownload.AllowOriginal}}checked{{end}}> Original document</label>
+                <label class="checkbox-label"><input type="checkbox" name="default_download_pdf" {{if $workspace.Settings.DefaultDownload.AllowPDF}}checked{{end}}> Converted PDF</label>
+                <label class="checkbox-label"><input type="checkbox" name="default_download_print" {{if $workspace.Settings.DefaultDownload.AllowPrint}}checked{{end}}> Print</label>
+            </fieldset>
+            <fieldset class="form-group form-span-2"><legend>Default sharing channels</legend>
+                <label class="checkbox-label"><input type="checkbox" name="default_share_enabled" {{if $workspace.Settings.DefaultShare.Enabled}}checked{{end}}> Enable sharing</label>
+                <label class="checkbox-label"><input type="checkbox" name="default_share_native" {{if $workspace.Settings.DefaultShare.Native}}checked{{end}}> Native Web Share</label>
+                <label class="checkbox-label"><input type="checkbox" name="default_share_email" {{if $workspace.Settings.DefaultShare.Email}}checked{{end}}> Email</label>
+                <label class="checkbox-label"><input type="checkbox" name="default_share_facebook" {{if $workspace.Settings.DefaultShare.Facebook}}checked{{end}}> Facebook</label>
+                <label class="checkbox-label"><input type="checkbox" name="default_share_linkedin" {{if $workspace.Settings.DefaultShare.LinkedIn}}checked{{end}}> LinkedIn</label>
+                <label class="checkbox-label"><input type="checkbox" name="default_share_x" {{if $workspace.Settings.DefaultShare.X}}checked{{end}}> X</label>
+            </fieldset>
+        </div></details>
+
+        <details class="panel settings-section"><summary>Workspace branding</summary><div class="settings-body form-grid">
+            <div class="form-group"><label for="workspace-logo">Logo URL</label><input type="text" id="workspace-logo" name="workspace_logo_url" value="{{$workspace.Settings.Branding.LogoURL}}"></div>
+            <div class="form-group"><label for="workspace-favicon">Favicon URL</label><input type="text" id="workspace-favicon" name="workspace_favicon_url" value="{{$workspace.Settings.Branding.FaviconURL}}"></div>
+            <div class="form-group"><label for="workspace-primary">Primary color</label><input type="text" id="workspace-primary" name="workspace_primary_color" value="{{$workspace.Settings.Branding.PrimaryColor}}" placeholder="#4F46E5" pattern="^$|#[0-9A-Fa-f]{3}([0-9A-Fa-f]{3})?"></div>
+            <div class="form-group"><label for="workspace-background">Background color</label><input type="text" id="workspace-background" name="workspace_background_color" value="{{$workspace.Settings.Branding.BackgroundColor}}" placeholder="#F8FAFC" pattern="^$|#[0-9A-Fa-f]{3}([0-9A-Fa-f]{3})?"></div>
+            <div class="form-group"><label for="workspace-publisher">Publisher name</label><input type="text" id="workspace-publisher" name="workspace_publisher_name" value="{{$workspace.Settings.Branding.PublisherName}}"></div>
+            <div class="form-group"><label for="workspace-publisher-url">Publisher URL</label><input type="text" id="workspace-publisher-url" name="workspace_publisher_url" value="{{$workspace.Settings.Branding.PublisherURL}}"></div>
+            <div class="form-group form-span-2"><label for="workspace-attribution">Attribution</label><input type="text" id="workspace-attribution" name="workspace_attribution" value="{{$workspace.Settings.Branding.Attribution}}"></div>
+            <label class="checkbox-label form-span-2"><input type="checkbox" name="workspace_hide_branding" {{if $workspace.Settings.Branding.HideBranding}}checked{{end}}> Hide Flipbook attribution</label>
+        </div></details>
+
+        <details class="panel settings-section"><summary>Default embed behavior</summary><div class="settings-body form-grid">
+            <fieldset class="form-group form-span-2"><legend>Embed capabilities</legend>
+                <label class="checkbox-label"><input type="checkbox" name="default_embed_enabled" {{if $workspace.Settings.DefaultEmbed.Enabled}}checked{{end}}> Allow embedding</label>
+                <label class="checkbox-label"><input type="checkbox" name="default_embed_toolbar" {{if $workspace.Settings.DefaultEmbed.ShowToolbar}}checked{{end}}> Toolbar</label>
+                <label class="checkbox-label"><input type="checkbox" name="default_embed_search" {{if $workspace.Settings.DefaultEmbed.ShowSearch}}checked{{end}}> Search</label>
+                <label class="checkbox-label"><input type="checkbox" name="default_embed_share" {{if $workspace.Settings.DefaultEmbed.ShowShare}}checked{{end}}> Share</label>
+                <label class="checkbox-label"><input type="checkbox" name="default_embed_download" {{if $workspace.Settings.DefaultEmbed.ShowDownload}}checked{{end}}> Download</label>
+            </fieldset>
+            <div class="form-group form-span-2"><label for="default-embed-domains">Allowed frame-ancestor domains</label><textarea id="default-embed-domains" name="default_embed_domains" rows="3">{{.DefaultDomainString}}</textarea></div>
+            <div class="form-group"><label for="default-embed-start">Start page</label><input type="number" id="default-embed-start" name="default_embed_start_page" value="{{$workspace.Settings.DefaultEmbed.StartPage}}" min="1"></div>
+            <div class="form-group"><label for="default-embed-mode">Reading mode</label><select id="default-embed-mode" name="default_embed_reading_mode">{{$mode := $workspace.Settings.DefaultEmbed.ReadingMode}}<option value="" {{if eq $mode ""}}selected{{end}}>Viewer default</option><option value="flip" {{if eq $mode "flip"}}selected{{end}}>Page flip</option><option value="single" {{if eq $mode "single"}}selected{{end}}>Single page</option><option value="double" {{if eq $mode "double"}}selected{{end}}>Two pages</option><option value="continuous" {{if eq $mode "continuous"}}selected{{end}}>Continuous scroll</option><option value="html" {{if eq $mode "html"}}selected{{end}}>Accessible HTML text</option></select></div>
+            <div class="form-group"><label for="default-embed-background">Background color</label><input type="text" id="default-embed-background" name="default_embed_background" value="{{$workspace.Settings.DefaultEmbed.Background}}" placeholder="#F8FAFC" pattern="^$|#[0-9A-Fa-f]{3}([0-9A-Fa-f]{3})?"></div>
+        </div></details>
+
+        <details class="panel settings-section"><summary>Analytics and notifications</summary><div class="settings-body form-grid">
+            <div class="form-group"><label for="analytics-policy">Analytics consent policy</label><select id="analytics-policy" name="analytics_consent_policy">{{$policy := $workspace.Settings.AnalyticsConsentPolicy}}<option value="required" {{if eq $policy "required"}}selected{{end}}>Consent required</option><option value="anonymous" {{if eq $policy "anonymous"}}selected{{end}}>Anonymous collection allowed</option><option value="disabled" {{if eq $policy "disabled"}}selected{{end}}>Collection disabled</option></select></div>
+            <div class="form-group"><label for="analytics-retention">Analytics retention (days)</label><input type="number" id="analytics-retention" name="analytics_retention_days" value="{{$workspace.Settings.AnalyticsRetentionDays}}" min="1" max="3650" required></div>
+            <div class="form-group form-span-2"><label for="notification-email">Notification email</label><input type="email" id="notification-email" name="notification_email" value="{{$workspace.Settings.NotificationEmail}}" maxlength="320"><p class="field-help">Delivery requires the service SMTP configuration.</p></div>
+        </div></details>
+        <div class="form-actions"><button type="submit" class="btn btn-primary">Save workspace settings</button></div>
+    </form>
+
+    {{if $workspace.Settings.CustomDomains}}
+    <section class="panel" aria-labelledby="domains-heading"><h2 id="domains-heading">Custom domains</h2><div class="table-scroll"><table class="data-table"><thead><tr><th scope="col">Host</th><th scope="col">Verification</th></tr></thead><tbody>{{range $workspace.Settings.CustomDomains}}<tr><th scope="row">{{.Host}}</th><td>{{if .Verified}}Verified{{else}}Pending verification{{end}}</td></tr>{{end}}</tbody></table></div><p class="field-help">Domain verification and canonical-host changes are managed by the domain integration.</p></section>
+    {{end}}
+
+    <section class="panel" aria-labelledby="new-workspace-heading">
+        <h2 id="new-workspace-heading">Create another workspace</h2>
+        <form method="POST" action="/admin/workspace/create" class="form-grid">
+            {{template "admin_csrf" .}}
+            <div class="form-group"><label for="new-workspace-name">Name</label><input type="text" id="new-workspace-name" name="name" maxlength="200" required></div>
+            <div class="form-group"><label for="new-workspace-slug">Slug <span class="text-muted">(optional)</span></label><input type="text" id="new-workspace-slug" name="slug" maxlength="200"></div>
+            <div class="form-actions"><button type="submit" class="btn">Create workspace</button></div>
+        </form>
+        <p class="field-help">You become the owner. Selecting the new workspace requires workspace selection in a new session.</p>
+    </section>
+</main>
+{{template "admin_scripts" .}}
+</body>
+</html>
+{{end}}

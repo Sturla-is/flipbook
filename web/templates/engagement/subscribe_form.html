@@ -1,0 +1,46 @@
+{{define "engagement_subscribe_fields"}}
+<form method="post" action="{{.FormAction}}" class="engagement-form" data-engagement-subscribe>
+    <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+    <input type="hidden" name="source" value="catalog">
+    <div class="engagement-status" data-engagement-status role="status" aria-live="polite">{{.Error}}</div>
+    <div class="engagement-field">
+        <label for="subscriber-email-{{.Workspace.ID}}">Email address <span aria-hidden="true">*</span></label>
+        <input id="subscriber-email-{{.Workspace.ID}}" name="email" type="email" inputmode="email" autocomplete="email" maxlength="254" required>
+    </div>
+    <div class="engagement-checkbox">
+        <input id="subscriber-consent-{{.Workspace.ID}}" name="consent" type="checkbox" value="true" required>
+        <label for="subscriber-consent-{{.Workspace.ID}}">I want to receive new-publication notifications and understand that I must confirm my subscription by email.</label>
+    </div>
+    <p class="engagement-help">You can unsubscribe at any time using the secure link in every notification.</p>
+    <button type="submit" class="engagement-button engagement-button-primary" data-engagement-submit>Subscribe</button>
+</form>
+{{end}}
+
+{{define "engagement_subscribe"}}
+<section class="engagement-subscribe" aria-labelledby="subscribe-title-{{.Workspace.ID}}">
+    <h2 id="subscribe-title-{{.Workspace.ID}}">New-publication notifications</h2>
+    <p>Subscribe to hear when {{.Workspace.Name}} publishes something new.</p>
+    {{template "engagement_subscribe_fields" .}}
+</section>
+{{end}}
+
+{{define "engagement_subscribe_form"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex,nofollow">
+    <title>Subscribe to {{.Workspace.Name}}</title>
+    <link rel="stylesheet" href="/static/css/engagement.css">
+</head>
+<body class="engagement-page">
+    <main class="engagement-card">
+        <h1>Subscribe to {{.Workspace.Name}}</h1>
+        <p>Receive an email when a new publication is available. Your subscription starts only after you confirm it.</p>
+        {{template "engagement_subscribe_fields" .}}
+    </main>
+    <script src="/static/js/engagement.js" defer></script>
+</body>
+</html>
+{{end}}

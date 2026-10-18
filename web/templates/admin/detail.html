@@ -1,121 +1,297 @@
 {{define "admin_detail"}}
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{.Flipbook.Title}} - Flipbook</title>
-    <link rel="icon" type="image/svg+xml" href="/static/img/favicon.svg">
-    <link rel="stylesheet" href="/static/css/style.css">
-</head>
+<head>{{template "admin_head" .}}</head>
 <body>
-    <nav class="navbar">
-        <a href="/admin" class="logo">Flipbook</a>
-        <div class="nav-links">
-            <a href="/admin">Dashboard</a>
-            <a href="/admin/upload">Upload</a>
-            <form method="POST" action="/logout" style="margin:0;display:inline;">
-                <button type="submit" class="btn btn-sm" style="border:none;color:var(--text-muted);cursor:pointer;">Logout</button>
-            </form>
-        </div>
-    </nav>
-    <main class="container">
-        <a href="/admin" class="back-link">&larr; Back to dashboard</a>
-
-        <div class="detail-header">
+{{template "admin_nav" .}}
+<main class="container container-wide" id="main-content">
+    <a href="/admin" class="back-link">← Back to library</a>
+    <div class="page-header detail-header">
+        <div>
             <h1>{{.Flipbook.Title}}</h1>
-            <span class="badge badge-{{.Flipbook.Status}}">{{.Flipbook.Status}}</span>
+            <div class="badge-row"><span class="badge badge-{{.Flipbook.Status}}">{{.Flipbook.Status}}</span><span class="badge badge-state-{{.Flipbook.PublicationState}}">{{.Flipbook.PublicationState}}</span><span class="badge">{{.Flipbook.Visibility}}</span>{{if .Flipbook.ArchivedAt}}<span class="badge badge-archived">Archived</span>{{end}}{{if .RequiresReview}}<span class="badge badge-review-{{.Flipbook.ReviewState}}">Review: {{.Flipbook.ReviewState}}</span>{{end}}</div>
         </div>
-
-        {{if eq .Flipbook.Status "regenerating"}}
-        <div class="status-card converting">
-            <div class="spinner"></div>
-            <p>Restoring flipbook from backup and reconverting... This may take a few minutes.</p>
-        </div>
-        <script>
-            setTimeout(function() { location.reload(); }, 5000);
-        </script>
-        {{end}}
-
-        {{if eq .Flipbook.Status "converting"}}
-        <div class="status-card converting">
-            <div class="spinner"></div>
-            <p>Converting your presentation... This may take a minute.</p>
-        </div>
-        <script>
-            setTimeout(function() { location.reload(); }, 3000);
-        </script>
-        {{end}}
-
-        {{if eq .Flipbook.Status "pending"}}
-        <div class="status-card pending">
-            <p>Queued for conversion...</p>
-        </div>
-        <script>
-            setTimeout(function() { location.reload(); }, 2000);
-        </script>
-        {{end}}
-
-        {{if eq .Flipbook.Status "error"}}
-        <div class="status-card error">
-            <p><strong>Conversion failed:</strong> {{.Flipbook.ErrorMessage}}</p>
-        </div>
-        {{end}}
-
-        {{if eq .Flipbook.Status "ready"}}
         <div class="action-bar">
-            <a href="/v/{{.Flipbook.Slug}}" target="_blank" class="btn btn-primary">View Flipbook</a>
-            <span class="text-muted">{{.Flipbook.PageCount}} pages &middot; {{.Views}} views</span>
+            {{if .CanEdit}}<form method="POST" action="/admin/flipbooks/{{.Flipbook.ID}}/duplicate">{{template "admin_csrf" .}}<button type="submit" class="btn">Duplicate as draft</button></form>{{end}}
+            {{if eq .Flipbook.Status "ready"}}<a href="{{.ViewerURL}}" target="_blank" rel="noopener" class="btn btn-primary">{{if .Flipbook.IsPublic}}View publication{{else}}Preview publication{{end}}</a>{{end}}
         </div>
+    </div>
+    {{template "admin_flash" .}}
 
-        <div class="section">
-            <h2>Embed Code</h2>
-            <div class="embed-code">
-                <textarea readonly id="embed-code" rows="3">{{.EmbedCode}}</textarea>
-                <button class="btn btn-sm" onclick="copyEmbed()">Copy</button>
-            </div>
-        </div>
+    {{if .NewShareToken}}
+    <section class="flash flash-success secret-reveal" aria-labelledby="share-token-created">
+        <h2 id="share-token-created">Share token created</h2>
+        <p>Copy this URL now. The token cannot be recovered later.</p>
+        <label for="new-share-url">Share URL</label>
+        <div class="copy-row"><input type="text" id="new-share-url" value="{{.NewShareURL}}" readonly><button type="button" class="btn" data-copy-target="new-share-url">Copy</button></div>
+    </section>
+    {{end}}
 
-        <div class="section">
-            <h2>Pages</h2>
-            <div class="thumb-grid">
-                {{range .Thumbs}}
-                <img src="{{.}}" alt="Page" loading="lazy">
-                {{end}}
-            </div>
+    <section class="status-card {{.Flipbook.Status}}" data-poll-container data-poll-url="/admin/flipbooks/{{.Flipbook.ID}}/status" data-current-status="{{.Flipbook.Status}}">
+        <div>
+            <strong data-status-heading>Conversion status: {{.Flipbook.Status}}</strong>
+            <p data-status-message>{{if .Flipbook.ErrorMessage}}{{.Flipbook.ErrorMessage}}{{else if eq .Flipbook.Status "ready"}}{{.Flipbook.PageCount}} pages converted.{{else}}The worker will update this page automatically.{{end}}</p>
+            <p class="field-help" data-poll-network></p>
         </div>
+        <span class="text-muted">{{.Flipbook.PageCount}} pages · {{.Views}} recorded views</span>
+    </section>
+
+    {{if .CanEdit}}
+    <section class="panel" aria-labelledby="publication-controls-heading">
+        <h2 id="publication-controls-heading">Publication and review</h2>
+        {{if .CanPublish}}
+        <form method="POST" action="/admin/flipbooks/{{.Flipbook.ID}}/publish" class="form-grid">
+            {{template "admin_csrf" .}}
+            <div class="form-group"><label for="publish-visibility">Visibility</label><select id="publish-visibility" name="visibility">{{$visibility := .Flipbook.Visibility}}
+                <option value="public" {{if eq $visibility "public"}}selected{{end}}>Public</option><option value="unlisted" {{if eq $visibility "unlisted"}}selected{{end}}>Unlisted / noindex</option><option value="private" {{if eq $visibility "private"}}selected{{end}}>Private</option><option value="team" {{if eq $visibility "team"}}selected{{end}}>Team only</option><option value="password" {{if eq $visibility "password"}}selected{{end}}>Password</option><option value="token" {{if eq $visibility "token"}}selected{{end}}>Revocable share token</option>
+            </select></div>
+            <div class="form-group"><label for="publish-at">Publish at (UTC)</label><input type="datetime-local" id="publish-at" name="publish_at" value="{{.PublishAtInput}}"><p class="field-help">Leave blank to publish immediately.</p></div>
+            <div class="form-group"><label for="expires-at">Expire at (UTC)</label><input type="datetime-local" id="expires-at" name="expires_at" value="{{.ExpiresAtInput}}"><p class="field-help">Optional automatic unpublish time.</p></div>
+            <div class="form-actions"><button type="submit" class="btn btn-primary">Publish / schedule</button></div>
+        </form>
+        {{if ne .Flipbook.PublicationState "draft"}}<form method="POST" action="/admin/flipbooks/{{.Flipbook.ID}}/unpublish" class="inline-form">{{template "admin_csrf" .}}<button type="submit" class="btn">Unpublish now</button></form>{{end}}
+        {{else}}<p class="field-help">A publisher or administrator is required to publish this document.</p>{{end}}
+        {{if .RequiresReview}}
+            {{$review := .Flipbook.ReviewState}}
+            {{if or (eq $review "not_required") (eq $review "rejected")}}
+            <form method="POST" action="/admin/flipbooks/{{.Flipbook.ID}}/review/submit" class="inline-review"><input type="hidden" name="note" value="">{{template "admin_csrf" .}}<button type="submit" class="btn">Submit for review</button></form>
+            {{else if eq $review "pending"}}
+                <p class="field-help">This publication is awaiting review.{{if .Flipbook.ReviewNote}} Note: {{.Flipbook.ReviewNote}}{{end}}</p>
+                {{if .CanManage}}<div class="action-bar"><form method="POST" action="/admin/flipbooks/{{.Flipbook.ID}}/review/approve" class="inline-review">{{template "admin_csrf" .}}<label for="approve-note">Review note</label><input type="text" id="approve-note" name="note" maxlength="2000"><button type="submit" class="btn btn-primary">Approve</button></form><form method="POST" action="/admin/flipbooks/{{.Flipbook.ID}}/review/reject" class="inline-review">{{template "admin_csrf" .}}<label for="reject-note">Rejection note</label><input type="text" id="reject-note" name="note" maxlength="2000" required><button type="submit" class="btn btn-danger">Reject</button></form></div>{{end}}
+            {{else if eq $review "approved"}}<p class="flash flash-success">Approved for publication{{if .Flipbook.ReviewedAt}} on {{.Flipbook.ReviewedAt.Format "2006-01-02 15:04"}}{{end}}.</p>
+            {{else if eq $review "rejected"}}<p class="flash flash-error">Review rejected.{{if .Flipbook.ReviewNote}} {{.Flipbook.ReviewNote}}{{end}}</p>{{end}}
         {{end}}
+    </section>
 
-        <div class="section">
-            <h2>Settings</h2>
-            <form action="/admin/flipbooks/{{.Flipbook.ID}}/settings" method="POST">
-                <div class="form-group">
-                    <label for="title">Title</label>
-                    <input type="text" id="title" name="title" value="{{.Flipbook.Title}}">
-                </div>
-                <div class="form-group">
-                    <label for="description">Description</label>
-                    <textarea id="description" name="description" rows="3">{{.Flipbook.Description}}</textarea>
-                </div>
-                <button type="submit" class="btn">Save Settings</button>
-            </form>
-        </div>
+    <section class="panel" aria-labelledby="slug-heading">
+        <h2 id="slug-heading">Public URL slug</h2>
+        <form method="POST" action="/admin/flipbooks/{{.Flipbook.ID}}/slug" class="inline-form">
+            {{template "admin_csrf" .}}
+            <div class="form-group"><label for="slug">Slug</label><input type="text" id="slug" name="slug" value="{{.Flipbook.Slug}}" maxlength="200" required><p class="field-help">Changing the slug keeps a permanent redirect from the previous URL.</p></div>
+            <button type="submit" class="btn">Update slug</button>
+        </form>
+    </section>
 
-        <div class="section danger-zone">
-            <h2>Danger Zone</h2>
-            <form action="/admin/flipbooks/{{.Flipbook.ID}}/delete" method="POST"
-                  onsubmit="return confirm('Delete this flipbook permanently?')">
-                <button type="submit" class="btn btn-danger">Delete Flipbook</button>
-            </form>
+    <form method="POST" action="/admin/flipbooks/{{.Flipbook.ID}}/settings" id="publication-settings">
+        {{template "admin_csrf" .}}
+        <div class="sticky-save"><strong>Publication settings</strong><button type="submit" class="btn btn-primary">Save all settings</button></div>
+
+        <details class="panel settings-section" open>
+            <summary>General, language, and collections</summary>
+            <div class="settings-body form-grid">
+                <div class="form-group form-span-2"><label for="title">Title</label><input type="text" id="title" name="title" value="{{.Flipbook.Title}}" maxlength="200" required></div>
+                <div class="form-group form-span-2"><label for="description">Description</label><textarea id="description" name="description" rows="4" maxlength="10000">{{.Flipbook.Description}}</textarea></div>
+                <div class="form-group"><label for="language">Publication language</label><input type="text" id="language" name="language" value="{{.Flipbook.Language}}" maxlength="35" placeholder="en or pt-BR" required></div>
+                <div class="form-group"><label for="tags">Tags</label><input type="text" id="tags" name="tags" value="{{.TagString}}" placeholder="reports, 2026"><p class="field-help">Comma-separated, up to 50 tags.</p></div>
+                <div class="form-group form-span-2"><label for="collection-ids">Collections</label><select id="collection-ids" name="collection_ids" multiple size="5">{{range .CollectionChoices}}<option value="{{.ID}}" {{if .Selected}}selected{{end}}>{{.Name}}</option>{{else}}<option value="" disabled>No collections have been created</option>{{end}}</select><p class="field-help">Use Ctrl/Cmd or Shift to select multiple collections.</p></div>
+                <div class="form-group"><label for="external-source">External source</label><input type="text" id="external-source" name="external_source" value="{{.Flipbook.ExternalSource}}" maxlength="100"></div>
+                <div class="form-group"><label for="external-id">External migration ID</label><input type="text" id="external-id" name="external_id" value="{{.Flipbook.ExternalID}}" maxlength="300"></div>
+            </div>
+        </details>
+
+        <details class="panel settings-section">
+            <summary>Access and downloads</summary>
+            <div class="settings-body form-grid">
+                <div class="form-group"><label for="visibility">Visibility used by default</label><select id="visibility" name="visibility">{{$visibility := .Flipbook.Visibility}}
+                    <option value="public" {{if eq $visibility "public"}}selected{{end}}>Public</option><option value="unlisted" {{if eq $visibility "unlisted"}}selected{{end}}>Unlisted / noindex</option><option value="private" {{if eq $visibility "private"}}selected{{end}}>Private</option><option value="team" {{if eq $visibility "team"}}selected{{end}}>Team only</option><option value="password" {{if eq $visibility "password"}}selected{{end}}>Password</option><option value="token" {{if eq $visibility "token"}}selected{{end}}>Revocable share token</option>
+                </select><p class="field-help">The publish action applies this visibility unless overridden there.</p></div>
+                <div class="form-group"><label for="password">New publication password</label><input type="password" id="password" name="password" minlength="12" maxlength="72" autocomplete="new-password"><p class="field-help">Leave blank to retain the current password.</p><label class="checkbox-label"><input type="checkbox" name="clear_password"> Clear stored password when visibility is not password</label></div>
+                <fieldset class="form-group form-span-2"><legend>Reader downloads</legend>
+                    <label class="checkbox-label"><input type="checkbox" name="download_enabled" {{if .Flipbook.Download.Enabled}}checked{{end}}> Enable downloads</label>
+                    <label class="checkbox-label"><input type="checkbox" name="download_original" {{if .Flipbook.Download.AllowOriginal}}checked{{end}}> Allow original document</label>
+                    <label class="checkbox-label"><input type="checkbox" name="download_pdf" {{if .Flipbook.Download.AllowPDF}}checked{{end}}> Allow converted PDF</label>
+                    <label class="checkbox-label"><input type="checkbox" name="download_print" {{if .Flipbook.Download.AllowPrint}}checked{{end}}> Allow printing</label>
+                </fieldset>
+                <fieldset class="form-group form-span-2"><legend>Sharing channels</legend>
+                    <label class="checkbox-label"><input type="checkbox" name="share_enabled" {{if .Flipbook.Share.Enabled}}checked{{end}}> Enable sharing</label>
+                    <label class="checkbox-label"><input type="checkbox" name="share_native" {{if .Flipbook.Share.Native}}checked{{end}}> Native Web Share</label>
+                    <label class="checkbox-label"><input type="checkbox" name="share_email" {{if .Flipbook.Share.Email}}checked{{end}}> Email</label>
+                    <label class="checkbox-label"><input type="checkbox" name="share_facebook" {{if .Flipbook.Share.Facebook}}checked{{end}}> Facebook</label>
+                    <label class="checkbox-label"><input type="checkbox" name="share_linkedin" {{if .Flipbook.Share.LinkedIn}}checked{{end}}> LinkedIn</label>
+                    <label class="checkbox-label"><input type="checkbox" name="share_x" {{if .Flipbook.Share.X}}checked{{end}}> X</label>
+                </fieldset>
+            </div>
+        </details>
+
+        <details class="panel settings-section">
+            <summary>SEO and social discovery</summary>
+            <div class="settings-body form-grid">
+                <div class="form-group"><label for="seo-title">SEO title</label><input type="text" id="seo-title" name="seo_title" value="{{.Flipbook.SEO.Title}}" maxlength="300"></div>
+                <div class="form-group"><label for="social-title">Social title</label><input type="text" id="social-title" name="social_title" value="{{.Flipbook.SEO.SocialTitle}}" maxlength="300"></div>
+                <div class="form-group form-span-2"><label for="seo-description">SEO description</label><textarea id="seo-description" name="seo_description" rows="3">{{.Flipbook.SEO.Description}}</textarea></div>
+                <div class="form-group form-span-2"><label for="social-description">Social description</label><textarea id="social-description" name="social_description" rows="3">{{.Flipbook.SEO.SocialDescription}}</textarea></div>
+                <div class="form-group form-span-2"><label for="canonical-url">Canonical URL</label><input type="text" id="canonical-url" name="canonical_url" value="{{.Flipbook.SEO.CanonicalURL}}" placeholder="https://example.com/catalog/document"></div>
+                <div class="form-group"><label for="cover-image">Cover image URL</label><input type="text" id="cover-image" name="cover_image" value="{{.Flipbook.SEO.CoverImage}}"></div>
+                <div class="form-group"><label for="social-image">Social image URL</label><input type="text" id="social-image" name="social_image" value="{{.Flipbook.SEO.SocialImage}}"></div>
+                <div class="form-group form-span-2"><label for="seo-keywords">SEO keywords</label><input type="text" id="seo-keywords" name="seo_keywords" value="{{.KeywordString}}" placeholder="comma-separated"></div>
+                <label class="checkbox-label form-span-2"><input type="checkbox" name="seo_noindex" {{if .Flipbook.SEO.NoIndex}}checked{{end}}> Request noindex for this publication</label>
+            </div>
+        </details>
+
+        <details class="panel settings-section">
+            <summary>Branding and publisher identity</summary>
+            <div class="settings-body form-grid">
+                <div class="form-group"><label for="logo-url">Logo URL</label><input type="text" id="logo-url" name="logo_url" value="{{.Flipbook.Branding.LogoURL}}"></div>
+                <div class="form-group"><label for="favicon-url">Favicon URL</label><input type="text" id="favicon-url" name="favicon_url" value="{{.Flipbook.Branding.FaviconURL}}"></div>
+                <div class="form-group"><label for="primary-color">Primary color</label><input type="text" id="primary-color" name="primary_color" value="{{.Flipbook.Branding.PrimaryColor}}" placeholder="#4F46E5" pattern="^$|#[0-9A-Fa-f]{3}([0-9A-Fa-f]{3})?"></div>
+                <div class="form-group"><label for="background-color">Background color</label><input type="text" id="background-color" name="background_color" value="{{.Flipbook.Branding.BackgroundColor}}" placeholder="#F8FAFC" pattern="^$|#[0-9A-Fa-f]{3}([0-9A-Fa-f]{3})?"></div>
+                <div class="form-group"><label for="publisher-name">Publisher name</label><input type="text" id="publisher-name" name="publisher_name" value="{{.Flipbook.Branding.PublisherName}}" maxlength="300"></div>
+                <div class="form-group"><label for="publisher-url">Publisher URL</label><input type="text" id="publisher-url" name="publisher_url" value="{{.Flipbook.Branding.PublisherURL}}"></div>
+                <div class="form-group form-span-2"><label for="attribution">Attribution text</label><input type="text" id="attribution" name="attribution" value="{{.Flipbook.Branding.Attribution}}" maxlength="500"></div>
+                <label class="checkbox-label form-span-2"><input type="checkbox" name="hide_branding" {{if .Flipbook.Branding.HideBranding}}checked{{end}}> Hide Flipbook attribution</label>
+            </div>
+        </details>
+
+        <details class="panel settings-section">
+            <summary>Embed behavior</summary>
+            <div class="settings-body form-grid">
+                <fieldset class="form-group form-span-2"><legend>Embed capabilities</legend>
+                    <label class="checkbox-label"><input type="checkbox" name="embed_enabled" {{if .Flipbook.Embed.Enabled}}checked{{end}}> Allow public embedding</label>
+                    <label class="checkbox-label"><input type="checkbox" name="embed_toolbar" {{if .Flipbook.Embed.ShowToolbar}}checked{{end}}> Show toolbar</label>
+                    <label class="checkbox-label"><input type="checkbox" name="embed_search" {{if .Flipbook.Embed.ShowSearch}}checked{{end}}> Show search</label>
+                    <label class="checkbox-label"><input type="checkbox" name="embed_share" {{if .Flipbook.Embed.ShowShare}}checked{{end}}> Show share</label>
+                    <label class="checkbox-label"><input type="checkbox" name="embed_download" {{if .Flipbook.Embed.ShowDownload}}checked{{end}}> Show download</label>
+                </fieldset>
+                <div class="form-group form-span-2"><label for="embed-domains">Allowed frame-ancestor domains</label><textarea id="embed-domains" name="embed_domains" rows="3" placeholder="example.com, https://intranet.example.com">{{.AllowedDomainString}}</textarea><p class="field-help">Leave blank to allow any frame ancestor. Use a comma-separated allowlist to restrict embedding.</p></div>
+                <div class="form-group"><label for="embed-start-page">Start page</label><input type="number" id="embed-start-page" name="embed_start_page" value="{{.Flipbook.Embed.StartPage}}" min="1" {{if .Flipbook.PageCount}}max="{{.Flipbook.PageCount}}"{{end}}></div>
+                <div class="form-group"><label for="embed-reading-mode">Reading mode</label><select id="embed-reading-mode" name="embed_reading_mode">{{$mode := .Flipbook.Embed.ReadingMode}}<option value="" {{if eq $mode ""}}selected{{end}}>Viewer default</option><option value="flip" {{if eq $mode "flip"}}selected{{end}}>Page flip</option><option value="single" {{if eq $mode "single"}}selected{{end}}>Single page</option><option value="double" {{if eq $mode "double"}}selected{{end}}>Two pages</option><option value="continuous" {{if eq $mode "continuous"}}selected{{end}}>Continuous scroll</option><option value="html" {{if eq $mode "html"}}selected{{end}}>Accessible HTML text</option></select></div>
+                <div class="form-group"><label for="embed-background">Background color</label><input type="text" id="embed-background" name="embed_background" value="{{.Flipbook.Embed.Background}}" placeholder="#F8FAFC" pattern="^$|#[0-9A-Fa-f]{3}([0-9A-Fa-f]{3})?"></div>
+            </div>
+        </details>
+
+        <details class="panel settings-section">
+            <summary>Calls to action</summary>
+            <div class="settings-body form-grid">
+                <label class="checkbox-label form-span-2"><input type="checkbox" name="cta_enabled" {{if .Flipbook.CTA.Enabled}}checked{{end}}> Enable publication call to action</label>
+                <div class="form-group"><label for="cta-text">Button text</label><input type="text" id="cta-text" name="cta_text" value="{{.Flipbook.CTA.Text}}" maxlength="200"></div>
+                <div class="form-group"><label for="cta-url">Destination URL</label><input type="text" id="cta-url" name="cta_url" value="{{.Flipbook.CTA.URL}}"></div>
+                <div class="form-group"><label for="cta-style">Style</label><select id="cta-style" name="cta_style">{{$style := .Flipbook.CTA.Style}}<option value="" {{if eq $style ""}}selected{{end}}>Default</option><option value="primary" {{if eq $style "primary"}}selected{{end}}>Primary</option><option value="secondary" {{if eq $style "secondary"}}selected{{end}}>Secondary</option><option value="outline" {{if eq $style "outline"}}selected{{end}}>Outline</option><option value="link" {{if eq $style "link"}}selected{{end}}>Link</option></select></div>
+                <div class="form-group"><label for="cta-start-page">Start showing on page</label><input type="number" id="cta-start-page" name="cta_start_page" value="{{.Flipbook.CTA.StartPage}}" min="0" {{if .Flipbook.PageCount}}max="{{.Flipbook.PageCount}}"{{end}}><p class="field-help">Use 0 to show from the beginning.</p></div>
+                <label class="checkbox-label form-span-2"><input type="checkbox" name="cta_show_end" {{if .Flipbook.CTA.ShowOnEnd}}checked{{end}}> Also show after the final page</label>
+            </div>
+        </details>
+
+        <details class="panel settings-section">
+            <summary>Lead capture gate</summary>
+            <div class="settings-body form-grid">
+                <label class="checkbox-label form-span-2"><input type="checkbox" name="lead_enabled" {{if .Flipbook.LeadGate.Enabled}}checked{{end}}> Enable lead capture</label>
+                <fieldset class="form-group form-span-2"><legend>Gate behavior</legend>
+                    <label class="checkbox-label"><input type="checkbox" name="lead_mandatory" {{if .Flipbook.LeadGate.Mandatory}}checked{{end}}> Mandatory</label>
+                    <label class="checkbox-label"><input type="checkbox" name="lead_dismissible" {{if .Flipbook.LeadGate.Dismissible}}checked{{end}}> Dismissible when not mandatory</label>
+                    <label class="checkbox-label"><input type="checkbox" name="lead_gate_reading" {{if .Flipbook.LeadGate.GateReading}}checked{{end}}> Gate reading</label>
+                    <label class="checkbox-label"><input type="checkbox" name="lead_gate_downloads" {{if .Flipbook.LeadGate.GateDownloads}}checked{{end}}> Gate downloads</label>
+                </fieldset>
+                <div class="form-group"><label for="lead-preview-pages">Free preview pages</label><input type="number" id="lead-preview-pages" name="lead_preview_pages" value="{{.Flipbook.LeadGate.PreviewPages}}" min="0" {{if .Flipbook.PageCount}}max="{{.Flipbook.PageCount}}"{{end}}></div>
+                <div class="form-group form-span-2"><label for="lead-consent-text">Consent text</label><textarea id="lead-consent-text" name="lead_consent_text" rows="3">{{.Flipbook.LeadGate.ConsentText}}</textarea></div>
+                <div class="form-group form-span-2"><label for="lead-success-message">Success message</label><textarea id="lead-success-message" name="lead_success_message" rows="2">{{.Flipbook.LeadGate.SuccessMessage}}</textarea></div>
+            </div>
+        </details>
+
+        <details class="panel settings-section">
+            <summary>Paid access</summary>
+            <div class="settings-body form-grid">
+                <label class="checkbox-label form-span-2"><input type="checkbox" name="sales_enabled" {{if .Flipbook.Sales.Enabled}}checked{{end}}> Sell access to this publication</label>
+                <div class="form-group"><label for="sales-price">Price</label><input type="text" inputmode="decimal" id="sales-price" name="sales_price" value="{{.Price}}" placeholder="12.50"></div>
+                <div class="form-group"><label for="sales-currency">Currency</label><input type="text" id="sales-currency" name="sales_currency" value="{{.Flipbook.Sales.Currency}}" maxlength="3" pattern="[A-Za-z]{3}" required></div>
+                <div class="form-group"><label for="sales-preview-pages">Free preview pages</label><input type="number" id="sales-preview-pages" name="sales_preview_pages" value="{{.Flipbook.Sales.PreviewPages}}" min="0" {{if .Flipbook.PageCount}}max="{{.Flipbook.PageCount}}"{{end}}></div>
+                <div class="form-group"><label for="stripe-price-id">Stripe price ID <span class="text-muted">(optional)</span></label><input type="text" id="stripe-price-id" name="stripe_price_id" value="{{.Flipbook.Sales.StripePriceID}}" maxlength="255" placeholder="price_…"></div>
+                <p class="field-help form-span-2">Checkout remains unavailable until Stripe is configured by the service. These settings do not claim live payment connectivity.</p>
+            </div>
+        </details>
+        <div class="form-actions settings-save-bottom"><button type="submit" class="btn btn-primary">Save all settings</button></div>
+    </form>
+
+    <section class="panel" aria-labelledby="embed-config-heading">
+        <h2 id="embed-config-heading">Embed code configurator</h2>
+        <p class="field-help">Size and aspect options change only the generated iframe. Save reader behavior in Embed behavior above.</p>
+        <form id="embed-configurator" data-embed-config data-base-url="{{.BaseURL}}" data-slug="{{.Flipbook.Slug}}" class="form-grid">
+            <div class="form-group"><label for="embed-width">Width (pixels)</label><input type="number" id="embed-width" value="800" min="200" max="4000"></div>
+            <div class="form-group"><label for="embed-height">Height (pixels)</label><input type="number" id="embed-height" value="600" min="200" max="4000"></div>
+            <div class="form-group"><label for="embed-aspect">Aspect ratio</label><select id="embed-aspect"><option value="custom">Custom</option><option value="16:9">16:9</option><option value="4:3">4:3</option><option value="3:2">3:2</option></select></div>
+            <label class="checkbox-label"><input type="checkbox" id="embed-responsive" checked> Responsive width</label>
+            <label class="checkbox-label"><input type="checkbox" id="embed-page-enabled"> Include start page ({{.Flipbook.Embed.StartPage}})</label>
+        </form>
+        <div class="form-group"><label for="embed-code">Embed code</label><div class="embed-code"><textarea readonly id="embed-code" rows="4" data-embed-output>{{.EmbedCode}}</textarea><button type="button" class="btn" data-copy-target="embed-code">Copy</button></div></div>
+        <div class="embed-preview" id="embed-preview" data-embed-preview aria-label="Embed preview"></div>
+    </section>
+
+    <section class="panel" aria-labelledby="replace-heading">
+        <h2 id="replace-heading">Replace source document</h2>
+        <p class="field-help">A replacement is converted as a new immutable revision. The current live revision stays active if conversion fails.</p>
+        <form method="POST" action="/admin/flipbooks/{{.Flipbook.ID}}/replace" enctype="multipart/form-data" class="inline-form">
+            {{template "admin_csrf" .}}
+            <div class="form-group"><label for="replacement-file">Replacement document</label><input type="file" id="replacement-file" name="file" accept=".pdf,.ppt,.pptx,.doc,.docx,.odt,.odp,.rtf" required></div>
+            <button type="submit" class="btn">Upload replacement</button>
+        </form>
+        <form method="POST" action="/admin/flipbooks/{{.Flipbook.ID}}/reconvert" class="inline-form">{{template "admin_csrf" .}}<button type="submit" class="btn">Reconvert current source</button></form>
+    </section>
+
+    <section class="panel" aria-labelledby="revisions-heading">
+        <h2 id="revisions-heading">Revisions</h2>
+        <div class="table-scroll"><table class="data-table"><caption class="sr-only">Publication revisions and recovery actions</caption><thead><tr><th scope="col">Revision</th><th scope="col">Status</th><th scope="col">Progress</th><th scope="col">Details</th><th scope="col">Created</th><th scope="col">Actions</th></tr></thead><tbody>
+        {{$currentRevision := .Flipbook.CurrentRevisionID}}
+        {{range .Revisions}}<tr>
+            <th scope="row">#{{.Number}}{{if eq .ID $currentRevision}} <span class="badge badge-ready">Active</span>{{end}}</th>
+            <td><span class="badge badge-{{.Status}}">{{.Status}}</span></td><td>{{.Progress}}%</td>
+            <td>{{if .ErrorMessage}}<span class="field-error">{{.ErrorMessage}}</span>{{end}}{{if .Warnings}}<ul>{{range .Warnings}}<li>{{.}}</li>{{end}}</ul>{{end}}{{if .PageCount}}{{.PageCount}} pages{{end}}</td>
+            <td>{{.CreatedAt.Format "2006-01-02 15:04"}}</td>
+            <td><div class="table-actions">
+                {{if or (eq .Status "failed") (eq .Status "pending") (eq .Status "converting")}}<form method="POST" action="/admin/flipbooks/{{$.Flipbook.ID}}/reconvert">{{template "admin_csrf" $}}<input type="hidden" name="revision_id" value="{{.ID}}"><button type="submit" class="btn btn-sm">Retry</button></form>{{end}}
+                {{if and (ne .ID $currentRevision) (or (eq .Status "ready") (eq .Status "superseded"))}}<form method="POST" action="/admin/flipbooks/{{$.Flipbook.ID}}/revisions/{{.ID}}/rollback" data-confirm="Activate this older revision? The current active revision will be replaced.">{{template "admin_csrf" $}}<button type="submit" class="btn btn-sm">Rollback</button></form>{{end}}
+                {{if and (ne .ID $currentRevision) (eq .Status "ready")}}<form method="POST" action="/admin/flipbooks/{{$.Flipbook.ID}}/revisions/{{.ID}}/activate">{{template "admin_csrf" $}}<button type="submit" class="btn btn-sm">Activate</button></form>{{end}}
+            </div></td>
+        </tr>{{else}}<tr><td colspan="6">No revisions are recorded.</td></tr>{{end}}
+        </tbody></table></div>
+    </section>
+
+    <section class="panel" aria-labelledby="jobs-heading">
+        <h2 id="jobs-heading">Background jobs</h2>
+        <div class="table-scroll"><table class="data-table"><caption class="sr-only">Recent durable worker jobs</caption><thead><tr><th scope="col">Type</th><th scope="col">Status</th><th scope="col">Progress</th><th scope="col">Attempts</th><th scope="col">Message</th><th scope="col">Actions</th></tr></thead><tbody>
+        {{range .Jobs}}<tr><th scope="row">{{.Type}}</th><td><span class="badge badge-job-{{.Status}}">{{.Status}}</span>{{if .CancelRequested}}<span class="table-secondary">Cancellation requested</span>{{end}}</td><td>{{.Progress}}%</td><td>{{.Attempts}} / {{.MaxAttempts}}</td><td>{{if .LastError}}<span class="field-error">{{.LastError}}</span>{{else}}{{.ProgressMessage}}{{end}}</td><td><div class="table-actions">
+            {{if or (eq .Status "queued") (eq .Status "running") (eq .Status "retry")}}<form method="POST" action="/admin/flipbooks/{{$.Flipbook.ID}}/jobs/{{.ID}}/cancel">{{template "admin_csrf" $}}<button type="submit" class="btn btn-sm">Cancel</button></form>{{end}}
+            {{if or (eq .Status "dead") (eq .Status "cancelled")}}<form method="POST" action="/admin/flipbooks/{{$.Flipbook.ID}}/jobs/{{.ID}}/retry">{{template "admin_csrf" $}}<button type="submit" class="btn btn-sm">Retry</button></form>{{end}}
+        </div></td></tr>{{else}}<tr><td colspan="6">No jobs are recorded.</td></tr>{{end}}
+        </tbody></table></div>
+    </section>
+
+    {{if .CanPublish}}
+    <section class="panel" aria-labelledby="share-tokens-heading">
+        <h2 id="share-tokens-heading">Revocable share tokens</h2>
+        <form method="POST" action="/admin/flipbooks/{{.Flipbook.ID}}/share-tokens" class="form-grid">
+            {{template "admin_csrf" .}}
+            <div class="form-group"><label for="share-token-name">Token name</label><input type="text" id="share-token-name" name="name" maxlength="200" placeholder="Partner review link"></div>
+            <div class="form-group"><label for="share-token-expiry">Expiry (UTC)</label><input type="datetime-local" id="share-token-expiry" name="expires_at"><p class="field-help">Leave blank for no expiry.</p></div>
+            <div class="form-actions"><button type="submit" class="btn">Create token</button></div>
+        </form>
+        <div class="table-scroll"><table class="data-table"><caption class="sr-only">Existing publication share tokens</caption><thead><tr><th scope="col">Name</th><th scope="col">Created</th><th scope="col">Expiry</th><th scope="col">Status</th><th scope="col">Action</th></tr></thead><tbody>
+        {{range .Flipbook.AccessTokens}}<tr><th scope="row">{{if .Name}}{{.Name}}{{else}}Unnamed token{{end}}</th><td>{{.CreatedAt.Format "2006-01-02 15:04"}}</td><td>{{if .ExpiresAt}}{{.ExpiresAt.Format "2006-01-02 15:04"}}{{else}}Never{{end}}</td><td>{{if .RevokedAt}}Revoked{{else}}Active or expired{{end}}</td><td>{{if not .RevokedAt}}<form method="POST" action="/admin/flipbooks/{{$.Flipbook.ID}}/share-tokens/{{.ID}}/revoke">{{template "admin_csrf" $}}<button type="submit" class="btn btn-sm">Revoke</button></form>{{end}}</td></tr>{{else}}<tr><td colspan="5">No share tokens have been created.</td></tr>{{end}}
+        </tbody></table></div>
+    </section>
+    {{end}}
+    {{end}}
+
+    {{if eq .Flipbook.Status "ready"}}
+    <section class="panel" aria-labelledby="pages-heading">
+        <h2 id="pages-heading">Page thumbnails</h2>
+        {{if .Thumbs}}<div class="thumb-grid">{{range .Thumbs}}<img src="{{.}}" alt="Publication page thumbnail" loading="lazy">{{end}}</div>{{if .ThumbsTruncated}}<p class="field-help">Showing the first 24 of {{.Flipbook.PageCount}} pages. Open the publication to review all pages.</p>{{end}}{{else}}<p>No thumbnails are available.</p>{{end}}
+    </section>
+    {{else}}
+    <section class="panel"><h2>Document details</h2><p>{{.Flipbook.Description}}</p><p class="text-muted">{{.Flipbook.Filename}} · {{.Flipbook.Language}}</p></section>
+    {{end}}
+
+    {{if .CanEdit}}
+    <section class="panel danger-zone" aria-labelledby="danger-heading">
+        <h2 id="danger-heading">Archive and trash</h2>
+        <div class="action-bar">
+        {{if .Flipbook.ArchivedAt}}
+            {{if .CanPublish}}<form method="POST" action="/admin/flipbooks/{{.Flipbook.ID}}/restore">{{template "admin_csrf" .}}<button type="submit" class="btn">Restore from archive</button></form>{{end}}
+        {{else if .CanPublish}}<form method="POST" action="/admin/flipbooks/{{.Flipbook.ID}}/archive" class="inline-review">{{template "admin_csrf" .}}<label for="archive-reason">Archive reason</label><input type="text" id="archive-reason" name="reason" maxlength="500"><button type="submit" class="btn">Archive</button></form>{{end}}
+        {{if .CanManage}}<form method="POST" action="/admin/flipbooks/{{.Flipbook.ID}}/delete" data-confirm="Move this publication to trash? Public access stops immediately and permanent purge is scheduled.">{{template "admin_csrf" .}}<button type="submit" class="btn btn-danger">Move to trash</button></form>{{end}}
         </div>
-    </main>
-    <script>
-    function copyEmbed() {
-        var ta = document.getElementById('embed-code');
-        ta.select();
-        document.execCommand('copy');
-    }
-    </script>
+    </section>
+    {{end}}
+</main>
+{{template "admin_scripts" .}}
 </body>
 </html>
 {{end}}

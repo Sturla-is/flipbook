@@ -1,0 +1,253 @@
+{{define "admin_analytics"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex,nofollow,noarchive">
+    <title>Analytics - Flipbook</title>
+    <link rel="icon" type="image/svg+xml" href="/static/img/favicon.svg">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/analytics.css">
+    <script defer src="/static/js/analytics.js"></script>
+</head>
+<body>
+    <nav class="navbar" aria-label="Administration">
+        <a href="/admin" class="logo">Flipbook</a>
+        <div class="nav-links">
+            <a href="/admin">Library</a>
+            <a href="/admin/upload">Upload</a>
+            <a href="/admin/analytics" class="active" aria-current="page">Analytics</a>
+            <a href="/admin/leads">Leads</a>
+            <a href="/admin/sales">Sales</a>
+        </div>
+    </nav>
+    <main class="container analytics-app" id="analytics-app" data-report-url="/admin/analytics/report">
+        <header class="analytics-header">
+            <div>
+                <p class="analytics-eyebrow">Privacy-aware reporting</p>
+                <h1>Analytics</h1>
+                <p>Views, qualified reading, engagement, acquisition, and reader journeys for your portfolio.</p>
+            </div>
+            <div class="analytics-export-group" aria-label="Export reports">
+                <a class="btn btn-sm" data-export="report-json" href="/admin/analytics/export.json?{{.ExportQuery}}">Report JSON</a>
+                <a class="btn btn-sm" data-export="report-csv" href="/admin/analytics/export.csv?{{.ExportQuery}}">Report CSV</a>
+            </div>
+        </header>
+
+        {{if .Notice}}<div class="analytics-notice" role="status">{{.Notice}}</div>{{end}}
+        <div id="analytics-status" class="analytics-status" role="status" aria-live="polite"></div>
+
+        <section class="analytics-panel" aria-labelledby="analytics-filters-title">
+            <h2 id="analytics-filters-title">Report filters</h2>
+            <form id="analytics-filters" class="analytics-filters" action="/admin/analytics" method="get">
+                <input type="hidden" name="workspace_id" value="{{.Report.Scope.WorkspaceID}}">
+                <div class="analytics-field">
+                    <label for="analytics-from">From (UTC)</label>
+                    <input type="date" id="analytics-from" name="from" value="{{.From}}" required>
+                </div>
+                <div class="analytics-field">
+                    <label for="analytics-to">To (UTC, inclusive)</label>
+                    <input type="date" id="analytics-to" name="to" value="{{.To}}" required>
+                </div>
+                <div class="analytics-field analytics-field-wide">
+                    <label for="analytics-flipbook">Publication</label>
+                    <select id="analytics-flipbook" name="flipbook_id">
+                        <option value="">Entire portfolio</option>
+                        {{range .Publications}}
+                        <option value="{{.ID}}" {{if eq $.SelectedFlipbook .ID}}selected{{end}}>{{.Title}}</option>
+                        {{end}}
+                    </select>
+                </div>
+                <div class="analytics-field">
+                    <label for="analytics-preset">Quick range</label>
+                    <select id="analytics-preset">
+                        <option value="">Custom</option>
+                        <option value="7">Last 7 days</option>
+                        <option value="30">Last 30 days</option>
+                        <option value="90">Last 90 days</option>
+                        <option value="365">Last 365 days</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary analytics-apply">Apply filters</button>
+            </form>
+        </section>
+
+        <section aria-labelledby="analytics-overview-title">
+            <div class="analytics-section-heading">
+                <h2 id="analytics-overview-title">Overview</h2>
+                <p>{{.From}} through {{.To}} (UTC)</p>
+            </div>
+            <dl class="analytics-kpis">
+                <div class="analytics-kpi"><dt>Views</dt><dd data-metric="views">{{.Report.Totals.Views}}</dd></div>
+                <div class="analytics-kpi"><dt>Page views</dt><dd data-metric="page_views">{{.Report.Totals.PageViews}}</dd></div>
+                <div class="analytics-kpi"><dt>Qualified reads</dt><dd data-metric="qualified_reads">{{.Report.Totals.QualifiedReads}}</dd></div>
+                <div class="analytics-kpi"><dt>Identified sessions</dt><dd data-metric="sessions">{{.Report.Totals.Sessions}}</dd></div>
+                <div class="analytics-kpi"><dt>Active time</dt><dd data-metric="active_seconds" data-format="duration">{{.Report.Totals.ActiveTime}}</dd></div>
+                <div class="analytics-kpi"><dt>Average active time</dt><dd data-metric="average_active_seconds" data-format="duration">{{.Report.Totals.AverageActiveTime}}</dd></div>
+                <div class="analytics-kpi"><dt>Completions</dt><dd data-metric="completions">{{.Report.Totals.Completions}}</dd></div>
+                <div class="analytics-kpi"><dt>Completion rate</dt><dd data-metric="completion_rate" data-format="percent">{{printf "%.1f" .Report.Totals.CompletionPercent}}%</dd></div>
+                <div class="analytics-kpi"><dt>Legacy requests (all time)</dt><dd data-legacy>{{.Report.Totals.LegacyViews}}</dd></div>
+            </dl>
+            <p class="analytics-help">Sessions and unique readers include only consented or policy-permitted pseudonymous identifiers. Legacy requests remain a separate all-time count and are not presented as readers.</p>
+        </section>
+
+        <section class="analytics-panel" aria-labelledby="analytics-engagement-title">
+            <h2 id="analytics-engagement-title">Engagement actions</h2>
+            <dl class="analytics-action-grid">
+                <div><dt>CTA clicks</dt><dd data-metric="cta_clicks">{{.Report.Totals.CTAClicks}}</dd></div>
+                <div><dt>Outbound clicks</dt><dd data-metric="outbound_clicks">{{.Report.Totals.OutboundClicks}}</dd></div>
+                <div><dt>Downloads</dt><dd data-metric="downloads">{{.Report.Totals.Downloads}}</dd></div>
+                <div><dt>Searches</dt><dd data-metric="searches">{{.Report.Totals.Searches}}</dd></div>
+                <div><dt>Shares</dt><dd data-metric="shares">{{.Report.Totals.Shares}}</dd></div>
+                <div><dt>Leads</dt><dd data-metric="leads">{{.Report.Totals.Leads}}</dd></div>
+                <div><dt>Purchases</dt><dd data-metric="purchases">{{.Report.Totals.Purchases}}</dd></div>
+                <div><dt>Unique readers</dt><dd data-metric="unique_readers">{{.Report.Totals.UniqueReaders}}</dd></div>
+            </dl>
+        </section>
+
+        <section class="analytics-panel" aria-labelledby="analytics-publications-title">
+            <h2 id="analytics-publications-title">Publications</h2>
+            <div class="analytics-table-wrap">
+                <table class="analytics-table">
+                    <caption>Reading metrics by publication. Legacy requests are all-time totals.</caption>
+                    <thead><tr><th scope="col">Publication</th><th scope="col">Views</th><th scope="col">Qualified reads</th><th scope="col">Sessions</th><th scope="col">Active time</th><th scope="col">Completion</th><th scope="col">Legacy</th></tr></thead>
+                    <tbody data-table="publications">
+                    {{range .Report.Publications}}
+                    <tr>
+                        <th scope="row"><a href="/admin/flipbooks/{{.Publication.ID}}/analytics">{{.Publication.Title}}</a></th>
+                        <td>{{.Totals.Views}}</td><td>{{.Totals.QualifiedReads}}</td><td>{{.Totals.Sessions}}</td><td>{{.Totals.ActiveTime}}</td><td>{{printf "%.1f" .Totals.CompletionPercent}}%</td><td>{{.Totals.LegacyViews}}</td>
+                    </tr>
+                    {{else}}
+                    <tr><td colspan="7" class="analytics-empty">No publications are available.</td></tr>
+                    {{end}}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="analytics-panel" aria-labelledby="analytics-trends-title">
+            <h2 id="analytics-trends-title">Daily trends</h2>
+            <div class="analytics-table-wrap analytics-table-scroll">
+                <table class="analytics-table">
+                    <caption>UTC daily views, reads, sessions, active time, and completions.</caption>
+                    <thead><tr><th scope="col">Date</th><th scope="col">Views</th><th scope="col">Qualified reads</th><th scope="col">Sessions</th><th scope="col">Active time</th><th scope="col">Completions</th></tr></thead>
+                    <tbody data-table="trends">
+                    {{range .Report.Trends}}
+                    <tr><th scope="row">{{.Date}}</th><td>{{.Views}}</td><td>{{.QualifiedReads}}</td><td>{{.Sessions}}</td><td>{{.ActiveTime}}</td><td>{{.Completions}}</td></tr>
+                    {{else}}
+                    <tr><td colspan="6" class="analytics-empty">No activity in this range.</td></tr>
+                    {{end}}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="analytics-panel" aria-labelledby="analytics-pages-title">
+            <h2 id="analytics-pages-title">Page drop-off and completion</h2>
+            <p class="analytics-help">Retention and drop-off use identified sessions when available and page-view counts otherwise.</p>
+            <div class="analytics-table-wrap analytics-table-scroll">
+                <table class="analytics-table">
+                    <caption>Per-page exposures, reach, drop-off, active time, furthest-page events, and completions.</caption>
+                    <thead><tr><th scope="col">Page</th><th scope="col">Page views</th><th scope="col">Sessions</th><th scope="col">Retention</th><th scope="col">Drop-off</th><th scope="col">Active time</th><th scope="col">Furthest</th><th scope="col">Completions</th></tr></thead>
+                    <tbody data-table="pages">
+                    {{range .Report.Pages}}
+                    <tr><th scope="row">{{.Page}}</th><td>{{.PageViews}}</td><td>{{.Sessions}}</td><td>{{printf "%.1f" .RetentionPercent}}%</td><td>{{.DropOff}} ({{printf "%.1f" .DropOffPercent}}%)</td><td>{{.ActiveTime}}</td><td>{{.Furthest}}</td><td>{{.Completions}}</td></tr>
+                    {{else}}
+                    <tr><td colspan="8" class="analytics-empty">No page activity in this range.</td></tr>
+                    {{end}}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="analytics-panel" aria-labelledby="analytics-funnel-title">
+            <h2 id="analytics-funnel-title">Reader funnel</h2>
+            <div class="analytics-table-wrap">
+                <table class="analytics-table">
+                    <caption>Event and identified-session progression from view to purchase.</caption>
+                    <thead><tr><th scope="col">Stage</th><th scope="col">Events</th><th scope="col">Identified sessions</th></tr></thead>
+                    <tbody data-table="funnel">
+                    {{range .Report.Funnel}}<tr><th scope="row">{{.Name}}</th><td>{{.Events}}</td><td>{{.Sessions}}</td></tr>{{end}}
+                    </tbody>
+                </table>
+            </div>
+            <div class="analytics-funnels" data-funnels>
+                {{range .Report.Funnels}}
+                <section class="analytics-subcard" aria-label="Funnel {{.Key}}">
+                    <h3>{{.Key}}</h3>
+                    <table class="analytics-table"><thead><tr><th scope="col">Stage</th><th scope="col">Events</th><th scope="col">Sessions</th></tr></thead><tbody>
+                        {{range .Steps}}<tr><th scope="row">{{.Name}}</th><td>{{.Events}}</td><td>{{.Sessions}}</td></tr>{{end}}
+                    </tbody></table>
+                </section>
+                {{end}}
+            </div>
+        </section>
+
+        <div class="analytics-breakdown-grid">
+            {{range .Breakdowns}}
+            <section class="analytics-panel analytics-breakdown" aria-labelledby="analytics-{{.Dimension}}-title">
+                <h2 id="analytics-{{.Dimension}}-title">{{.Title}}</h2>
+                <div class="analytics-table-wrap">
+                    <table class="analytics-table">
+                        <caption>{{.Title}} by views, qualified reads, sessions, active time, and all events.</caption>
+                        <thead><tr><th scope="col">Value</th><th scope="col">Views</th><th scope="col">Reads</th><th scope="col">Sessions</th><th scope="col">Active</th><th scope="col">Events</th></tr></thead>
+                        <tbody data-breakdown="{{.Dimension}}">
+                        {{range .Items}}
+                        <tr><th scope="row">{{.Key}}</th><td>{{.Views}}</td><td>{{.QualifiedReads}}</td><td>{{.Sessions}}</td><td>{{.ActiveTime}}</td><td>{{.Events}}</td></tr>
+                        {{else}}
+                        <tr><td colspan="6" class="analytics-empty">No data in this range.</td></tr>
+                        {{end}}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+            {{end}}
+        </div>
+
+        <section class="analytics-panel" aria-labelledby="analytics-exports-title">
+            <h2 id="analytics-exports-title">Privacy-safe event exports</h2>
+            <p>Exports require an authenticated workspace member. They exclude session hashes, reader hashes, IP addresses, internal expiry fields, and unlisted metadata. Search events can contain reader-entered search text.</p>
+            <div class="analytics-export-group">
+                <a class="btn btn-sm" data-export="events-json" href="/admin/analytics/events.json?{{.ExportQuery}}">Events JSON</a>
+                <a class="btn btn-sm" data-export="events-csv" href="/admin/analytics/events.csv?{{.ExportQuery}}">Events CSV</a>
+            </div>
+        </section>
+
+        <section class="analytics-panel" aria-labelledby="analytics-privacy-title">
+            <h2 id="analytics-privacy-title">Privacy and retention</h2>
+            <p>Events expire automatically after the workspace retention period. Raw IP addresses are never stored. Referrers have query strings and fragments removed, bots and admin previews are filtered, and reader opt-out or DNT=1 stops collection.</p>
+            <details class="analytics-details">
+                <summary>Reader event fields and controls</summary>
+                <p>The public endpoint is <code>POST /api/public/flipbooks/{id}/events</code>. Optional metadata consumed by the server:</p>
+                <p><code>event_id</code>, <code>placement</code>, <code>embed_host</code>, <code>target_url</code>, <code>query</code>, <code>cta_id</code>, <code>link_id</code>, <code>channel</code>, <code>method</code>, <code>format</code>, and the five <code>utm_*</code> fields. Other metadata is discarded.</p>
+                <p>Readers can inspect policy at <code>GET /api/public/flipbooks/{id}/analytics/privacy</code> and grant or withdraw consent with <code>POST /api/public/flipbooks/{id}/analytics/consent</code> using <code>{"consent":true}</code> or <code>{"consent":false}</code>.</p>
+            </details>
+            {{if .CanManage}}
+            <form class="analytics-privacy-form" action="/admin/analytics/privacy" method="post">
+                {{if .CSRFToken}}<input type="hidden" name="csrf_token" value="{{.CSRFToken}}">{{end}}
+                <input type="hidden" name="workspace_id" value="{{.Report.Scope.WorkspaceID}}">
+                <div class="analytics-field">
+                    <label for="analytics-consent-policy">Identifier consent policy</label>
+                    <select id="analytics-consent-policy" name="consent_policy" required>
+                        <option value="required" {{if eq .ConsentPolicy "required"}}selected{{end}}>Required — aggregate only until opt-in</option>
+                        <option value="anonymous" {{if eq .ConsentPolicy "anonymous"}}selected{{end}}>Anonymous — pseudonymous identifiers allowed</option>
+                        <option value="disabled" {{if eq .ConsentPolicy "disabled"}}selected{{end}}>Disabled — never store identifiers</option>
+                    </select>
+                </div>
+                <div class="analytics-field">
+                    <label for="analytics-retention">Retention (days)</label>
+                    <input type="number" id="analytics-retention" name="retention_days" value="{{.RetentionDays}}" min="1" max="3650" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Save privacy settings</button>
+            </form>
+            {{else}}
+            <p class="analytics-help">Workspace administrators can change consent and retention settings.</p>
+            {{end}}
+        </section>
+
+        <footer class="analytics-footer">Generated {{.Report.GeneratedAt.Format "2006-01-02 15:04 UTC"}}. All report boundaries use UTC.</footer>
+    </main>
+</body>
+</html>
+{{end}}

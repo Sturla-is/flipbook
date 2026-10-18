@@ -8,6 +8,11 @@ data/
 # Config files with secrets
 config.dev.yaml
 config.prod.yaml
+.env
+.env.local
+
+# Installed dependencies
+node_modules/
 
 # OS files
 .DS_Store

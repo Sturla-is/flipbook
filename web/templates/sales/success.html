@@ -1,0 +1,29 @@
+{{define "sales_success"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex,nofollow,noarchive">
+    <title>Purchase complete</title>
+    <link rel="icon" type="image/svg+xml" href="/static/img/favicon.svg">
+    <link rel="stylesheet" href="/static/css/sales.css">
+</head>
+<body>
+<main class="sales-page">
+    <section class="sales-card" aria-labelledby="success-title">
+        <p class="sales-eyebrow">Purchase complete</p>
+        <h1 id="success-title">Your publication is ready</h1>
+        <p>Thank you. Your purchase of <strong>{{.Flipbook.Title}}</strong> is confirmed.</p>
+        <p class="sales-muted">Access is linked to this browser with a secure purchase cookie. Keep your confirmation link for your records.</p>
+        <a class="sales-button sales-button-primary" href="{{.ViewerURL}}">Read now</a>
+        <dl class="sales-receipt">
+            <div><dt>Order</dt><dd>{{.Purchase.ID}}</dd></div>
+            <div><dt>Email</dt><dd>{{.Purchase.Email}}</dd></div>
+            <div><dt>Status</dt><dd>Paid</dd></div>
+        </dl>
+    </section>
+</main>
+</body>
+</html>
+{{end}}

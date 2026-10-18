@@ -1,0 +1,156 @@
+{{define "admin_leads"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex,nofollow">
+    <title>Leads and subscriptions - Flipbook</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/engagement.css">
+</head>
+<body>
+    <nav class="navbar" aria-label="Administration">
+        <a href="/admin" class="logo">Flipbook</a>
+        <div class="nav-links">
+            <a href="/admin">Dashboard</a>
+            <a href="/admin/leads" aria-current="page">Leads</a>
+            <a href="/admin/leads/integrations">Engagement integrations</a>
+        </div>
+    </nav>
+    <main class="container engagement-admin">
+        <h1>Leads and subscriptions</h1>
+        {{if .Notice}}<div class="engagement-alert engagement-alert-success" role="status">{{.Notice}}</div>{{end}}
+        {{if .Error}}<div class="engagement-alert engagement-alert-error" role="alert">{{.Error}}</div>{{end}}
+
+        <section class="engagement-section" aria-labelledby="lead-filters-title">
+            <h2 id="lead-filters-title">Filter and export</h2>
+            <form method="get" action="/admin/leads" class="engagement-filter-form">
+                <div class="engagement-field">
+                    <label for="filter-flipbook">Publication</label>
+                    <select id="filter-flipbook" name="flipbook_id">
+                        <option value="">All publications</option>
+                        {{range .Flipbooks}}<option value="{{.ID}}" {{if eq $.SelectedFlipbookID .ID}}selected{{end}}>{{.Title}}</option>{{end}}
+                    </select>
+                </div>
+                <div class="engagement-field">
+                    <label for="filter-from">From</label>
+                    <input id="filter-from" name="from" type="date" value="{{.From}}">
+                </div>
+                <div class="engagement-field">
+                    <label for="filter-to">Through</label>
+                    <input id="filter-to" name="to" type="date" value="{{.To}}">
+                </div>
+                <button type="submit" class="engagement-button engagement-button-primary">Apply filters</button>
+            </form>
+            <p><a href="{{.ExportURL}}" class="engagement-button engagement-button-secondary">Download CSV</a> <span class="engagement-muted">{{.Total}} leads in the selected publication scope. CSV cells are protected against spreadsheet formulas.</span></p>
+        </section>
+
+        <section class="engagement-section" aria-labelledby="lead-gate-settings-title">
+            <h2 id="lead-gate-settings-title">Lead gate settings</h2>
+            {{if .SelectedFlipbook}}
+            <p>Configure gating for <strong>{{.SelectedFlipbook.Title}}</strong>. Reading gates apply after the preview pages. A captured or allowed-dismissal grant also unlocks downloads when download gating is enabled.</p>
+            <form method="post" action="/admin/flipbooks/{{.SelectedFlipbook.ID}}/lead-gate" class="engagement-form">
+                <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+                <input type="hidden" name="flipbook_id" value="{{.SelectedFlipbook.ID}}">
+                <div class="engagement-checkbox">
+                    <input id="gate-enabled" name="enabled" type="checkbox" value="true" {{if .SelectedFlipbook.LeadGate.Enabled}}checked{{end}}>
+                    <label for="gate-enabled">Enable lead capture</label>
+                </div>
+                <div class="engagement-field">
+                    <label for="gate-mode">Gate mode</label>
+                    <select id="gate-mode" name="mode">
+                        <option value="">Choose a mode</option>
+                        <option value="mandatory" {{if .SelectedFlipbook.LeadGate.Mandatory}}selected{{end}}>Mandatory — email required</option>
+                        <option value="dismissible" {{if .SelectedFlipbook.LeadGate.Dismissible}}selected{{end}}>Dismissible — reader may continue without email</option>
+                    </select>
+                </div>
+                <fieldset class="engagement-fieldset">
+                    <legend>Protected features</legend>
+                    <div class="engagement-checkbox"><input id="gate-reading" name="gate_reading" type="checkbox" value="true" {{if .SelectedFlipbook.LeadGate.GateReading}}checked{{end}}><label for="gate-reading">Reading beyond the preview</label></div>
+                    <div class="engagement-checkbox"><input id="gate-downloads" name="gate_downloads" type="checkbox" value="true" {{if .SelectedFlipbook.LeadGate.GateDownloads}}checked{{end}}><label for="gate-downloads">Downloads and printing</label></div>
+                </fieldset>
+                <div class="engagement-field">
+                    <label for="gate-preview-pages">Free preview pages</label>
+                    <input id="gate-preview-pages" name="preview_pages" type="number" min="0" max="{{.SelectedFlipbook.PageCount}}" step="1" required value="{{.SelectedFlipbook.LeadGate.PreviewPages}}">
+                </div>
+                <div class="engagement-field">
+                    <label for="gate-consent-text">Consent text</label>
+                    <textarea id="gate-consent-text" name="consent_text" rows="3" maxlength="5000">{{.SelectedFlipbook.LeadGate.ConsentText}}</textarea>
+                </div>
+                <div class="engagement-field">
+                    <label for="gate-success-message">Success message</label>
+                    <textarea id="gate-success-message" name="success_message" rows="2" maxlength="2000">{{.SelectedFlipbook.LeadGate.SuccessMessage}}</textarea>
+                </div>
+                <button type="submit" class="engagement-button engagement-button-primary">Save lead gate</button>
+            </form>
+            {{else}}
+            <p>Select one publication in the filter above to edit its lead gate.</p>
+            {{end}}
+        </section>
+
+        <section class="engagement-section" aria-labelledby="retention-title">
+            <h2 id="retention-title">Lead retention</h2>
+            <form method="post" action="/admin/leads/retention" class="engagement-filter-form">
+                <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+                <input type="hidden" name="flipbook_id" value="{{.SelectedFlipbookID}}">
+                <div class="engagement-field">
+                    <label for="retention-days">Retention days (0 keeps leads indefinitely)</label>
+                    <input id="retention-days" name="retention_days" type="number" min="0" max="3650" step="1" required value="{{.RetentionDays}}">
+                </div>
+                <div class="engagement-checkbox">
+                    <input id="retention-apply" name="apply_existing" type="checkbox" value="true">
+                    <label for="retention-apply">Apply this retention window to existing leads now</label>
+                </div>
+                <button type="submit" class="engagement-button engagement-button-primary">Save retention</button>
+            </form>
+        </section>
+
+        <section class="engagement-section" aria-labelledby="lead-list-title">
+            <h2 id="lead-list-title">Captured leads</h2>
+            {{if .Leads}}
+            <div class="engagement-table-wrap" tabindex="0" role="region" aria-label="Captured leads table" aria-describedby="lead-table-help">
+                <p id="lead-table-help" class="engagement-visually-hidden">Scroll horizontally to review all columns.</p>
+                <table class="engagement-table">
+                    <thead><tr><th scope="col">Email</th><th scope="col">Name</th><th scope="col">Publication</th><th scope="col">Source</th><th scope="col">Consented</th><th scope="col">Created</th><th scope="col">Retention expiry</th><th scope="col">Action</th></tr></thead>
+                    <tbody>
+                    {{range .Leads}}
+                        <tr>
+                            <td>{{.Email}}</td><td>{{.Name}}</td><td><code>{{.FlipbookID}}</code></td><td>{{.Source}}</td><td>{{if .Consented}}Yes{{else}}No{{end}}</td><td>{{.CreatedAt}}</td><td>{{if .RetentionExpiresAt}}{{.RetentionExpiresAt}}{{else}}Indefinite{{end}}</td>
+                            <td><form method="post" action="/admin/leads/{{.ID}}/delete" data-confirm="Permanently delete this local lead record?"><input type="hidden" name="csrf_token" value="{{$.CSRFToken}}"><input type="hidden" name="flipbook_id" value="{{.FlipbookID}}"><button type="submit" class="engagement-button engagement-button-danger engagement-button-small">Delete</button></form></td>
+                        </tr>
+                    {{end}}
+                    </tbody>
+                </table>
+            </div>
+            <nav class="engagement-pagination" aria-label="Lead pages">
+                {{if .PreviousURL}}<a href="{{.PreviousURL}}">Previous page</a>{{end}}
+                <span>Page {{.Page}} of {{.PageCount}}</span>
+                {{if .NextURL}}<a href="{{.NextURL}}">Next page</a>{{end}}
+            </nav>
+            {{else}}<p>No leads match these filters.</p>{{end}}
+            {{if .SelectedFlipbook}}
+            <form method="post" action="/admin/leads/delete-for-flipbook" data-confirm="Permanently delete every local lead for this publication?">
+                <input type="hidden" name="csrf_token" value="{{.CSRFToken}}"><input type="hidden" name="flipbook_id" value="{{.SelectedFlipbook.ID}}">
+                <button type="submit" class="engagement-button engagement-button-danger">Delete all leads for {{.SelectedFlipbook.Title}}</button>
+            </form>
+            {{end}}
+        </section>
+
+        <section class="engagement-section" aria-labelledby="subscriber-list-title">
+            <h2 id="subscriber-list-title">Catalog subscribers</h2>
+            <p>Pending subscribers must confirm by email. Deletion removes the local subscription record.</p>
+            {{if .Subscribers}}
+            <div class="engagement-table-wrap" tabindex="0" role="region" aria-label="Catalog subscribers table">
+                <table class="engagement-table">
+                    <thead><tr><th scope="col">Email</th><th scope="col">Status</th><th scope="col">Source</th><th scope="col">Confirmed</th><th scope="col">Unsubscribed</th><th scope="col">Action</th></tr></thead>
+                    <tbody>{{range .Subscribers}}<tr><td>{{.Email}}</td><td>{{.Status}}</td><td>{{.Source}}</td><td>{{if .ConfirmedAt}}{{.ConfirmedAt}}{{else}}—{{end}}</td><td>{{if .UnsubscribedAt}}{{.UnsubscribedAt}}{{else}}—{{end}}</td><td><form method="post" action="/admin/subscribers/{{.ID}}/delete" data-confirm="Permanently delete this local subscriber?"><input type="hidden" name="csrf_token" value="{{$.CSRFToken}}"><button type="submit" class="engagement-button engagement-button-danger engagement-button-small">Delete</button></form></td></tr>{{end}}</tbody>
+                </table>
+            </div>
+            {{else}}<p>No catalog subscribers yet.</p>{{end}}
+        </section>
+    </main>
+    <script src="/static/js/engagement.js" defer></script>
+</body>
+</html>
+{{end}}

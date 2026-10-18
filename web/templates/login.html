@@ -4,63 +4,156 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - Flipbook</title>
+    <meta name="robots" content="noindex,nofollow,noarchive">
+    <title>Sign in - Flipbook</title>
     <link rel="icon" type="image/svg+xml" href="/static/img/favicon.svg">
     <link rel="stylesheet" href="/static/css/style.css">
     <style>
-        .login-wrapper {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: calc(100vh - 56px);
-        }
-        .login-card {
-            background: var(--card-bg);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 40px;
-            width: 100%;
-            max-width: 400px;
-        }
-        .login-card h1 {
-            text-align: center;
-            margin-bottom: 8px;
-        }
-        .login-card .subtitle {
-            text-align: center;
-            color: var(--text-muted);
-            font-size: 14px;
-            margin-bottom: 32px;
-        }
-        .login-error {
-            background: #fecaca;
-            color: #991b1b;
-            padding: 10px 14px;
-            border-radius: var(--radius);
-            font-size: 14px;
-            margin-bottom: 20px;
-        }
+        .login-wrapper { display:flex; align-items:center; justify-content:center; min-height:calc(100vh - 56px); padding:24px 16px; }
+        .login-card { background:var(--card-bg); border:1px solid var(--border); border-radius:var(--radius); padding:40px; width:100%; max-width:420px; }
+        .login-card h1 { text-align:center; margin-bottom:8px; }
+        .login-card .subtitle { text-align:center; color:var(--text-muted); font-size:14px; margin-bottom:28px; }
+        .login-error,.login-notice { padding:10px 14px; border-radius:var(--radius); font-size:14px; margin-bottom:20px; }
+        .login-error { background:#fecaca; color:#991b1b; }
+        .login-notice { background:#d1fae5; color:#065f46; }
+        .login-card input { width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:var(--radius); font-size:14px; box-sizing:border-box; }
+        .login-card input[readonly] { background:var(--background); color:var(--text-muted); }
+        .login-card .btn { width:100%; box-sizing:border-box; }
+        .login-divider { display:flex; align-items:center; gap:12px; color:var(--text-muted); font-size:12px; margin:20px 0; }
+        .login-divider::before,.login-divider::after { content:""; height:1px; background:var(--border); flex:1; }
+        .login-secondary { display:block; text-align:center; margin-top:16px; font-size:14px; }
+        .login-links { text-align:center; margin-top:18px; font-size:14px; }
     </style>
 </head>
 <body>
-    <nav class="navbar">
-        <a href="/" class="logo">Flipbook</a>
-    </nav>
+    <nav class="navbar"><a href="/" class="logo">Flipbook</a></nav>
     <main class="login-wrapper">
         <div class="login-card">
-            <h1>Admin Login</h1>
-            <p class="subtitle">Enter your password to access the admin area.</p>
-            {{if .Error}}
-            <div class="login-error">{{.Error}}</div>
-            {{end}}
+            {{$mode := .Mode}}
+            <h1>{{if eq $mode "bootstrap"}}Set up Flipbook{{else if eq $mode "invitation"}}Accept invitation{{else if eq $mode "forgot"}}Reset password{{else if eq $mode "reset"}}Choose a new password{{else if eq $mode "change"}}Change password{{else}}Sign in{{end}}</h1>
+            <p class="subtitle">
+                {{if eq $mode "bootstrap"}}Create the initial administrator password. Setup is available only from this server.
+                {{else if eq $mode "invitation"}}Confirm your account to join the workspace.
+                {{else if eq $mode "forgot"}}Enter your account email to request reset instructions.
+                {{else if eq $mode "reset"}}Choose a new password for your account.
+                {{else if eq $mode "change"}}Changing your password signs out all existing sessions.
+                {{else}}Use your account credentials or configured identity provider.{{end}}
+            </p>
+            {{if .Error}}<div class="login-error" role="alert">{{.Error}}</div>{{end}}
+            {{if .Notice}}<div class="login-notice" role="status">{{.Notice}}</div>{{end}}
+
+            {{if eq $mode "bootstrap"}}
             <form method="POST" action="/login">
+                <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+                <input type="hidden" name="action" value="bootstrap">
                 <div class="form-group">
-                    <label for="password">Password</label>
-                    <input type="password" id="password" name="password" required autofocus
-                        style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius);font-size:14px;">
+                    <label for="password">Administrator password</label>
+                    <input type="password" id="password" name="password" minlength="12" maxlength="72" required autofocus autocomplete="new-password">
                 </div>
-                <button type="submit" class="btn btn-primary btn-lg">Sign In</button>
+                <div class="form-group">
+                    <label for="confirm-password">Confirm password</label>
+                    <input type="password" id="confirm-password" name="confirm_password" minlength="12" maxlength="72" required autocomplete="new-password">
+                </div>
+                <button type="submit" class="btn btn-primary btn-lg">Create administrator</button>
             </form>
+
+            {{else if eq $mode "invitation"}}
+                {{if .Token}}
+                <form method="POST" action="/invitation">
+                    <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+                    <input type="hidden" name="token" value="{{.Token}}">
+                    <div class="form-group">
+                        <label for="email">Email</label>
+                        <input type="email" id="email" value="{{.Email}}" readonly>
+                    </div>
+                    {{if .NewUser}}
+                    <div class="form-group">
+                        <label for="name">Name</label>
+                        <input type="text" id="name" name="name" value="{{.Name}}" required autocomplete="name">
+                    </div>
+                    {{end}}
+                    <div class="form-group">
+                        <label for="password">{{if .NewUser}}Create password{{else}}Current account password{{end}}</label>
+                        <input type="password" id="password" name="password" {{if .NewUser}}minlength="12"{{end}} maxlength="72" required autocomplete="{{if .NewUser}}new-password{{else}}current-password{{end}}">
+                    </div>
+                    {{if .NewUser}}
+                    <div class="form-group">
+                        <label for="confirm-password">Confirm password</label>
+                        <input type="password" id="confirm-password" name="confirm_password" minlength="12" maxlength="72" required autocomplete="new-password">
+                    </div>
+                    {{end}}
+                    <button type="submit" class="btn btn-primary btn-lg">Accept invitation</button>
+                </form>
+                {{end}}
+
+            {{else if eq $mode "forgot"}}
+            <form method="POST" action="/password-reset">
+                <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" name="email" value="{{.Email}}" required autofocus autocomplete="email">
+                </div>
+                <button type="submit" class="btn btn-primary btn-lg">Request reset</button>
+            </form>
+            <div class="login-links"><a href="/login">Back to sign in</a></div>
+
+            {{else if eq $mode "reset"}}
+                {{if .Token}}
+                <form method="POST" action="/password-reset/confirm">
+                    <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+                    <input type="hidden" name="token" value="{{.Token}}">
+                    <div class="form-group">
+                        <label for="password">New password</label>
+                        <input type="password" id="password" name="password" minlength="12" maxlength="72" required autofocus autocomplete="new-password">
+                    </div>
+                    <div class="form-group">
+                        <label for="confirm-password">Confirm password</label>
+                        <input type="password" id="confirm-password" name="confirm_password" minlength="12" maxlength="72" required autocomplete="new-password">
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-lg">Reset password</button>
+                </form>
+                {{end}}
+
+            {{else if eq $mode "change"}}
+            <form method="POST" action="/account/password">
+                <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+                <div class="form-group">
+                    <label for="current-password">Current password</label>
+                    <input type="password" id="current-password" name="current_password" required autofocus autocomplete="current-password">
+                </div>
+                <div class="form-group">
+                    <label for="password">New password</label>
+                    <input type="password" id="password" name="password" minlength="12" maxlength="72" required autocomplete="new-password">
+                </div>
+                <div class="form-group">
+                    <label for="confirm-password">Confirm new password</label>
+                    <input type="password" id="confirm-password" name="confirm_password" minlength="12" maxlength="72" required autocomplete="new-password">
+                </div>
+                <button type="submit" class="btn btn-primary btn-lg">Change password</button>
+            </form>
+
+            {{else}}
+                {{if not .SetupRequired}}
+                <form method="POST" action="/login">
+                    <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+                    <input type="hidden" name="return" value="{{.ReturnTo}}">
+                    <div class="form-group">
+                        <label for="username">Email or username</label>
+                        <input type="text" id="username" name="username" value="{{if .Username}}{{.Username}}{{else}}admin{{end}}" required autofocus autocomplete="username" autocapitalize="none" spellcheck="false">
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Password</label>
+                        <input type="password" id="password" name="password" required autocomplete="current-password">
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-lg">Sign in</button>
+                </form>
+                <div class="login-links"><a href="/password-reset">Forgot password?</a></div>
+                {{end}}
+                {{if .OIDCEnabled}}
+                <div class="login-divider">or</div>
+                <a class="btn btn-secondary btn-lg login-secondary" href="{{.OIDCURL}}?return={{.ReturnTo}}">Sign in with single sign-on</a>
+                {{end}}
+            {{end}}
         </div>
     </main>
 </body>

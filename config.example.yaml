@@ -1,28 +1,169 @@
-# Flipbook Configuration
-# Copy this file to config.dev.yaml (for development) or config.yaml (for production)
-# Environment variables override these values (prefixed with FLIPBOOK_)
+# Flipbook configuration. Copy to config.dev.yaml or config.yaml.
+# Every scalar/list setting can be overridden with the documented FLIPBOOK_* name.
+# Never commit real credentials. External services remain disabled until configured.
 
-# Server
+# Server and storage: FLIPBOOK_PORT, FLIPBOOK_BASE_URL, FLIPBOOK_DATA_DIR.
 port: "8080"
 base_url: "http://localhost:8080"
-
-# Storage
 data_dir: "./data"
 
-# MongoDB
-mongo_uri: "mongodb+srv://user:password@cluster.mongodb.net/?appName=Flipbook"
+# MongoDB: FLIPBOOK_MONGO_URI, FLIPBOOK_MONGO_DB.
+mongo_uri: "mongodb://localhost:27017"
 mongo_db: "flipbook"
 
-# LibreOffice (auto-detected if blank)
-libreoffice_bin: ""
+# Conversion binaries and legacy upload/image controls.
+# FLIPBOOK_LIBREOFFICE_BIN, FLIPBOOK_MAX_UPLOAD_SIZE (bytes),
+# FLIPBOOK_CONVERSION_DPI, FLIPBOOK_THUMBNAIL_DPI.
+libreoffice_bin: "" # Auto-detected when blank.
+max_upload_size: 104857600
+conversion_dpi: 300
+thumbnail_dpi: 72
 
-# Upload limits
-max_upload_size: 104857600  # 100MB in bytes
+# Legacy admin/API secrets: FLIPBOOK_SESSION_SECRET, FLIPBOOK_API_KEY.
+# Blank generates ephemeral random values; set persistent values in production.
+session_secret: ""
+api_key: ""
 
-# Image quality
-conversion_dpi: 300         # Full-size page images
-thumbnail_dpi: 72           # Thumbnail images
+security:
+  # HTTPS mode forces Secure cookies and HSTS. FLIPBOOK_SECURITY_HTTPS_MODE.
+  https_mode: false
+  secure_cookies: false          # FLIPBOOK_SECURITY_SECURE_COOKIES
+  hsts: false                    # FLIPBOOK_SECURITY_HSTS
+  hsts_max_age_seconds: 31536000 # FLIPBOOK_SECURITY_HSTS_MAX_AGE_SECONDS
+  hsts_include_subdomains: false # FLIPBOOK_SECURITY_HSTS_INCLUDE_SUBDOMAINS
+  session_ttl_seconds: 604800    # FLIPBOOK_SECURITY_SESSION_TTL_SECONDS
+  login_attempts_per_minute: 10  # FLIPBOOK_SECURITY_LOGIN_ATTEMPTS_PER_MINUTE
+  # Reject ephemeral legacy secrets: FLIPBOOK_SECURITY_REQUIRE_PERSISTENT_SECRETS.
+  require_persistent_secrets: false
+  # Encryption key for stored provider tokens; use a persistent random 32+ byte value.
+  # FLIPBOOK_SECURITY_TOKEN_ENCRYPTION_KEY.
+  token_encryption_key: ""
+  # Comma-separated proxy IPs/CIDRs trusted for forwarded scheme/country headers.
+  # FLIPBOOK_SECURITY_TRUSTED_PROXIES.
+  trusted_proxies: []
 
-# Security
-session_secret: ""          # Random 64-char hex string; auto-generated if blank
-api_key: ""                 # Bearer token for API/MCP access; auto-generated if blank
+analytics:
+  enabled: true                  # FLIPBOOK_ANALYTICS_ENABLED
+  retention_days: 365            # FLIPBOOK_ANALYTICS_RETENTION_DAYS; event TTL.
+  # required: IDs only after consent; anonymous: pseudonymous IDs allowed;
+  # disabled: never store reader/session IDs. FLIPBOOK_ANALYTICS_CONSENT_POLICY.
+  consent_policy: "required"
+  allow_country: false           # FLIPBOOK_ANALYTICS_ALLOW_COUNTRY; proxy-supplied country only.
+  reader_id_pepper: ""           # FLIPBOOK_ANALYTICS_READER_ID_PEPPER; persistent random value.
+  ignore_admin_previews: true    # FLIPBOOK_ANALYTICS_IGNORE_ADMIN_PREVIEWS
+
+conversion:
+  worker_count: 2                # FLIPBOOK_CONVERSION_WORKER_COUNT
+  job_lease_seconds: 60          # FLIPBOOK_CONVERSION_JOB_LEASE_SECONDS
+  job_heartbeat_seconds: 15      # FLIPBOOK_CONVERSION_JOB_HEARTBEAT_SECONDS; must be below lease.
+  max_job_attempts: 5            # FLIPBOOK_CONVERSION_MAX_JOB_ATTEMPTS
+  retry_backoff_seconds: 30      # FLIPBOOK_CONVERSION_RETRY_BACKOFF_SECONDS
+  max_retry_backoff_seconds: 3600 # FLIPBOOK_CONVERSION_MAX_RETRY_BACKOFF_SECONDS
+  timeout_seconds: 900           # FLIPBOOK_CONVERSION_TIMEOUT_SECONDS
+  max_pages: 1000                # FLIPBOOK_CONVERSION_MAX_PAGES
+  max_page_pixels: 50000000      # FLIPBOOK_CONVERSION_MAX_PAGE_PIXELS
+  max_disk_bytes: 5368709120     # FLIPBOOK_CONVERSION_MAX_DISK_BYTES
+  max_remote_download_bytes: 209715200 # FLIPBOOK_CONVERSION_MAX_REMOTE_DOWNLOAD_BYTES
+
+oidc:
+  enabled: false                 # FLIPBOOK_OIDC_ENABLED
+  issuer_url: ""                 # FLIPBOOK_OIDC_ISSUER_URL; discovery base URL.
+  client_id: ""                  # FLIPBOOK_OIDC_CLIENT_ID
+  client_secret: ""              # FLIPBOOK_OIDC_CLIENT_SECRET
+  redirect_url: ""               # FLIPBOOK_OIDC_REDIRECT_URL
+  scopes: ["openid", "profile", "email"] # FLIPBOOK_OIDC_SCOPES (comma-separated).
+  group_claim: "groups"          # FLIPBOOK_OIDC_GROUP_CLAIM
+  # YAML-only IdP group to owner/admin/publisher/editor/reader mapping.
+  group_roles: {}
+  require_mfa: false             # FLIPBOOK_OIDC_REQUIRE_MFA; validate IdP ACR/AMR.
+
+smtp:
+  enabled: false                 # FLIPBOOK_SMTP_ENABLED
+  host: ""                       # FLIPBOOK_SMTP_HOST
+  port: 587                      # FLIPBOOK_SMTP_PORT
+  username: ""                   # FLIPBOOK_SMTP_USERNAME
+  password: ""                   # FLIPBOOK_SMTP_PASSWORD
+  from: ""                       # FLIPBOOK_SMTP_FROM
+  from_name: "Flipbook"         # FLIPBOOK_SMTP_FROM_NAME
+  tls_mode: "starttls"           # FLIPBOOK_SMTP_TLS_MODE: none, starttls, or tls.
+
+stripe:
+  enabled: false                 # FLIPBOOK_STRIPE_ENABLED
+  secret_key: ""                 # FLIPBOOK_STRIPE_SECRET_KEY
+  webhook_secret: ""             # FLIPBOOK_STRIPE_WEBHOOK_SECRET
+  success_url: ""                # FLIPBOOK_STRIPE_SUCCESS_URL
+  cancel_url: ""                 # FLIPBOOK_STRIPE_CANCEL_URL
+
+crm:
+  # Each provider supports *_ENABLED, *_API_KEY, *_ACCESS_TOKEN, *_INSTANCE_URL,
+  # and *_LIST_ID under FLIPBOOK_CRM_HUBSPOT/SALESFORCE/MAILCHIMP.
+  hubspot:
+    enabled: false
+    api_key: ""
+    access_token: ""
+    instance_url: ""
+    list_id: ""
+  salesforce:
+    enabled: false
+    api_key: ""
+    access_token: ""
+    instance_url: ""             # Required by the Salesforce connector.
+    list_id: ""
+  mailchimp:
+    enabled: false
+    api_key: ""
+    access_token: ""
+    instance_url: ""
+    list_id: ""                  # Audience/list used for subscriptions.
+
+webhooks:
+  enabled: false                 # FLIPBOOK_WEBHOOKS_ENABLED
+  signing_secret: ""             # FLIPBOOK_WEBHOOKS_SIGNING_SECRET; default subscription secret.
+  timeout_seconds: 15            # FLIPBOOK_WEBHOOKS_TIMEOUT_SECONDS
+  max_attempts: 8                # FLIPBOOK_WEBHOOKS_MAX_ATTEMPTS
+  retry_backoff_seconds: 30      # FLIPBOOK_WEBHOOKS_RETRY_BACKOFF_SECONDS
+  max_response_body_bytes: 65536 # FLIPBOOK_WEBHOOKS_MAX_RESPONSE_BODY_BYTES
+
+providers:
+  # OAuth settings use FLIPBOOK_PROVIDERS_CANVA_* and
+  # FLIPBOOK_PROVIDERS_ADOBE_EXPRESS_* with ENABLED, CLIENT_ID, CLIENT_SECRET,
+  # REDIRECT_URL, SCOPES (comma-separated), and API_BASE_URL.
+  canva:
+    enabled: false
+    client_id: ""
+    client_secret: ""
+    redirect_url: ""
+    scopes: []
+    api_base_url: "https://api.canva.com"
+  adobe_express:
+    enabled: false
+    client_id: ""
+    client_secret: ""
+    redirect_url: ""
+    scopes: []
+    api_base_url: "https://cc-api-behance.adobe.io"
+
+domains:
+  enabled: false                 # FLIPBOOK_DOMAINS_ENABLED
+  allowed_hosts: []              # FLIPBOOK_DOMAINS_ALLOWED_HOSTS; comma-separated.
+  default_canonical_host: ""     # FLIPBOOK_DOMAINS_DEFAULT_CANONICAL_HOST
+
+ocr:
+  enabled: false                 # FLIPBOOK_OCR_ENABLED
+  tesseract_bin: "tesseract"    # FLIPBOOK_OCR_TESSERACT_BIN
+  language: "eng"                # FLIPBOOK_OCR_LANGUAGE
+  timeout_seconds: 60            # FLIPBOOK_OCR_TIMEOUT_SECONDS
+
+storage:
+  backend: "local"               # FLIPBOOK_STORAGE_BACKEND: local or s3.
+  s3:
+    enabled: false               # FLIPBOOK_STORAGE_S3_ENABLED
+    endpoint: ""                 # FLIPBOOK_STORAGE_S3_ENDPOINT; blank for AWS.
+    region: ""                   # FLIPBOOK_STORAGE_S3_REGION
+    bucket: ""                   # FLIPBOOK_STORAGE_S3_BUCKET
+    access_key_id: ""            # FLIPBOOK_STORAGE_S3_ACCESS_KEY_ID; blank allows workload identity.
+    secret_access_key: ""        # FLIPBOOK_STORAGE_S3_SECRET_ACCESS_KEY
+    session_token: ""            # FLIPBOOK_STORAGE_S3_SESSION_TOKEN
+    path_style: false            # FLIPBOOK_STORAGE_S3_PATH_STYLE
+    prefix: ""                   # FLIPBOOK_STORAGE_S3_PREFIX
+    cdn_base_url: ""             # FLIPBOOK_STORAGE_S3_CDN_BASE_URL

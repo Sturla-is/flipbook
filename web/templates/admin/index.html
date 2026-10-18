@@ -1,63 +1,182 @@
 {{define "admin_index"}}
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Flipbook - Dashboard</title>
-    <link rel="icon" type="image/svg+xml" href="/static/img/favicon.svg">
-    <link rel="stylesheet" href="/static/css/style.css">
-</head>
+<head>{{template "admin_head" .}}</head>
 <body>
-    <nav class="navbar">
-        <a href="/admin" class="logo">Flipbook</a>
-        <div class="nav-links">
-            <a href="/admin" class="active">Dashboard</a>
-            <a href="/admin/upload" class="btn btn-primary btn-sm">+ Upload</a>
-            <form method="POST" action="/logout" style="margin:0;display:inline;">
-                <button type="submit" class="btn btn-sm" style="border:none;color:var(--text-muted);cursor:pointer;">Logout</button>
-            </form>
+{{template "admin_nav" .}}
+<main class="container container-wide" id="main-content">
+    <div class="page-header">
+        <div>
+            <h1>Library</h1>
+            <p class="text-muted">Search, organize, and manage publication lifecycles.</p>
         </div>
-    </nav>
-    <main class="container">
-        <h1>Your Flipbooks</h1>
-        {{if .Flipbooks}}
-        <div class="grid">
-            {{range .Flipbooks}}
-            <a href="/admin/flipbooks/{{.ID}}" class="card">
-                <div class="card-thumb">
-                    {{if eq .Status "ready"}}
-                    <img src="{{index $.ThumbMap .ID}}" alt="{{.Title}}">
-                    {{else}}
-                    <div class="card-placeholder">
-                        {{if eq .Status "converting"}}
-                        <div class="spinner"></div>
-                        {{else if eq .Status "error"}}
-                        <span class="error-icon">!</span>
-                        {{else}}
-                        <span class="pending-icon">...</span>
-                        {{end}}
-                    </div>
+        {{if .CanEdit}}<a href="/admin/upload" class="btn btn-primary">Upload documents</a>{{end}}
+    </div>
+    {{template "admin_flash" .}}
+
+    <section class="panel filter-panel" aria-labelledby="filter-heading">
+        <h2 id="filter-heading" class="sr-only">Filter publications</h2>
+        <form method="GET" action="/admin" class="filter-grid">
+            <div class="form-group filter-search">
+                <label for="library-q">Search</label>
+                <input type="search" id="library-q" name="q" value="{{.Filters.q}}" placeholder="Title, description, or slug" maxlength="200">
+            </div>
+            <div class="form-group">
+                <label for="library-status">Conversion</label>
+                <select id="library-status" name="status">
+                    <option value="">Any status</option>
+                    {{$current := .Filters.status}}
+                    <option value="pending" {{if eq $current "pending"}}selected{{end}}>Pending</option>
+                    <option value="converting" {{if eq $current "converting"}}selected{{end}}>Converting</option>
+                    <option value="ready" {{if eq $current "ready"}}selected{{end}}>Ready</option>
+                    <option value="error" {{if eq $current "error"}}selected{{end}}>Error</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="library-state">Publication</label>
+                <select id="library-state" name="state">
+                    <option value="">Any state</option>
+                    {{$current := .Filters.state}}
+                    <option value="draft" {{if eq $current "draft"}}selected{{end}}>Draft</option>
+                    <option value="published" {{if eq $current "published"}}selected{{end}}>Published</option>
+                    <option value="unpublished" {{if eq $current "unpublished"}}selected{{end}}>Unpublished</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="library-visibility">Visibility</label>
+                <select id="library-visibility" name="visibility">
+                    <option value="">Any visibility</option>
+                    {{$current := .Filters.visibility}}
+                    <option value="public" {{if eq $current "public"}}selected{{end}}>Public</option>
+                    <option value="unlisted" {{if eq $current "unlisted"}}selected{{end}}>Unlisted</option>
+                    <option value="private" {{if eq $current "private"}}selected{{end}}>Private</option>
+                    <option value="team" {{if eq $current "team"}}selected{{end}}>Team</option>
+                    <option value="password" {{if eq $current "password"}}selected{{end}}>Password</option>
+                    <option value="token" {{if eq $current "token"}}selected{{end}}>Share token</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="library-tag">Tag</label>
+                <input type="text" id="library-tag" name="tag" value="{{.Filters.tag}}" maxlength="64" placeholder="Exact tag">
+            </div>
+            <div class="form-group">
+                <label for="library-collection">Collection</label>
+                <select id="library-collection" name="collection">
+                    <option value="">Any collection</option>
+                    {{$current := .Filters.collection}}
+                    {{range .Collections}}<option value="{{.ID}}" {{if eq $current .ID}}selected{{end}}>{{.Name}}</option>{{end}}
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="library-view">Archive</label>
+                <select id="library-view" name="view">
+                    {{$current := .Filters.view}}
+                    <option value="active" {{if or (eq $current "") (eq $current "active")}}selected{{end}}>Active only</option>
+                    <option value="archived" {{if eq $current "archived"}}selected{{end}}>Archived only</option>
+                    <option value="all" {{if eq $current "all"}}selected{{end}}>Active and archived</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="library-sort">Sort</label>
+                <select id="library-sort" name="sort">
+                    {{$current := .Filters.sort}}
+                    <option value="created_at" {{if or (eq $current "") (eq $current "created_at")}}selected{{end}}>Created</option>
+                    <option value="updated_at" {{if eq $current "updated_at"}}selected{{end}}>Updated</option>
+                    <option value="title" {{if eq $current "title"}}selected{{end}}>Title</option>
+                    <option value="published_at" {{if eq $current "published_at"}}selected{{end}}>Published</option>
+                    <option value="page_count" {{if eq $current "page_count"}}selected{{end}}>Page count</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="library-direction">Direction</label>
+                <select id="library-direction" name="direction">
+                    {{$current := .Filters.direction}}
+                    <option value="desc" {{if ne $current "asc"}}selected{{end}}>Descending</option>
+                    <option value="asc" {{if eq $current "asc"}}selected{{end}}>Ascending</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="library-per-page">Per page</label>
+                <select id="library-per-page" name="per_page">
+                    {{$current := .Pagination.PerPage}}
+                    <option value="12" {{if eq $current 12}}selected{{end}}>12</option>
+                    <option value="24" {{if eq $current 24}}selected{{end}}>24</option>
+                    <option value="48" {{if eq $current 48}}selected{{end}}>48</option>
+                    <option value="96" {{if eq $current 96}}selected{{end}}>96</option>
+                </select>
+            </div>
+            <div class="filter-actions">
+                <button type="submit" class="btn btn-primary">Apply filters</button>
+                <a href="/admin" class="btn">Reset</a>
+            </div>
+        </form>
+    </section>
+
+    {{if .Flipbooks}}
+        {{if .CanEdit}}
+        <form method="POST" action="/admin/bulk" id="bulk-form" data-bulk-form>
+            {{template "admin_csrf" .}}
+            <input type="hidden" name="return_to" value="{{.ReturnTo}}">
+            <div class="bulk-toolbar" aria-label="Bulk actions">
+                <div class="bulk-selection-count"><input type="checkbox" id="select-all" data-select-all aria-label="Select all publications on this page"> <label for="select-all"><span data-selected-count>0</span> selected</label></div>
+                <div class="form-group"><label for="bulk-action">Action</label><select id="bulk-action" name="action" required data-bulk-action>
+                    <option value="">Choose action</option>
+                    <option value="retry">Reconvert</option>
+                    <option value="add_tags">Add tags</option>
+                    <option value="remove_tags">Remove tags</option>
+                    <option value="add_collection">Add to collection</option>
+                    <option value="remove_collection">Remove from collection</option>
+                    <option value="set_collection">Set collection</option>
+                    {{if $.CanPublish}}<option value="publish">Publish now</option>
+                    <option value="unpublish">Unpublish</option>
+                    <option value="archive">Archive</option>
+                    <option value="restore">Restore from archive</option>{{end}}
+                    {{if $.CanManage}}<option value="trash">Move to trash</option>{{end}}
+                </select></div>
+                <div class="form-group"><label for="bulk-tags">Tags</label><input type="text" id="bulk-tags" name="tags" placeholder="tag one, tag two"></div>
+                <div class="form-group"><label for="bulk-collection">Collection</label><select id="bulk-collection" name="collection_id"><option value="">None / not changed</option>{{range .Collections}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select></div>
+                <button type="submit" class="btn">Apply to selected</button>
+            </div>
+        {{else}}<div>{{end}}
+            <div class="table-scroll">
+                <table class="data-table library-table">
+                    <caption class="sr-only">Publications matching the current filters</caption>
+                    <thead><tr>
+                        {{if .CanEdit}}<th scope="col" class="checkbox-cell"><span class="sr-only">Select</span></th>{{end}}
+                        <th scope="col">Publication</th><th scope="col">Conversion</th><th scope="col">Publication</th><th scope="col">Visibility</th><th scope="col">Tags</th><th scope="col">Pages</th><th scope="col">Updated</th>
+                    </tr></thead>
+                    <tbody>
+                    {{range .Flipbooks}}
+                        <tr>
+                            {{if $.CanEdit}}<td class="checkbox-cell"><input type="checkbox" name="ids" value="{{.ID}}" data-bulk-item aria-label="Select {{.Title}}"></td>{{end}}
+                            <th scope="row">
+                                <div class="publication-cell">
+                                    <div class="library-thumb">{{if index $.ThumbMap .ID}}<img src="{{index $.ThumbMap .ID}}" alt="" loading="lazy">{{else}}<span aria-hidden="true">{{.PageCount}}</span>{{end}}</div>
+                                    <div><a href="/admin/flipbooks/{{.ID}}" class="publication-title">{{.Title}}</a><span class="publication-slug">/{{.Slug}}</span>{{if .ArchivedAt}}<span class="badge badge-archived">Archived</span>{{end}}{{if .ErrorMessage}}<span class="field-error">{{.ErrorMessage}}</span>{{end}}</div>
+                                </div>
+                            </th>
+                            <td><span class="badge badge-{{.Status}}">{{.Status}}</span></td>
+                            <td><span class="badge badge-state-{{.PublicationState}}">{{.PublicationState}}</span>{{if .PublishAt}}<span class="table-secondary">Scheduled {{.PublishAt.Format "2006-01-02 15:04"}}</span>{{end}}</td>
+                            <td>{{.Visibility}}</td>
+                            <td>{{if .Tags}}{{range .Tags}}<span class="tag">{{.}}</span>{{end}}{{else}}<span class="text-muted">—</span>{{end}}</td>
+                            <td>{{.PageCount}}</td>
+                            <td><time datetime="{{.UpdatedAt.Format "2006-01-02T15:04:05Z07:00"}}">{{.UpdatedAt.Format "2006-01-02 15:04"}}</time></td>
+                        </tr>
                     {{end}}
-                </div>
-                <div class="card-body">
-                    <h3>{{.Title}}</h3>
-                    <div class="card-meta">
-                        <span class="badge badge-{{.Status}}">{{.Status}}</span>
-                        {{if .PageCount}}<span>{{.PageCount}} pages</span>{{end}}
-                    </div>
-                </div>
-            </a>
-            {{end}}
-        </div>
-        {{else}}
-        <div class="empty-state">
-            <h2>No flipbooks yet</h2>
-            <p>Upload a PowerPoint file to create your first flipbook.</p>
-            <a href="/admin/upload" class="btn btn-primary">Upload PowerPoint</a>
-        </div>
-        {{end}}
-    </main>
+                    </tbody>
+                </table>
+            </div>
+        {{if .CanEdit}}</form>{{else}}</div>{{end}}
+        {{template "admin_pagination" .}}
+    {{else}}
+        <section class="empty-state panel">
+            <h2>No publications found</h2>
+            <p>Try different filters, or upload a document to create a draft publication.</p>
+            {{if .CanEdit}}<a href="/admin/upload" class="btn btn-primary">Upload documents</a>{{end}}
+        </section>
+    {{end}}
+</main>
+{{template "admin_scripts" .}}
 </body>
 </html>
 {{end}}

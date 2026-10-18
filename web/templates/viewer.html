@@ -1,179 +1,31 @@
 {{define "viewer"}}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{.Language}}" dir="{{.Direction}}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{.Flipbook.Title}}</title>
-    <link rel="icon" type="image/svg+xml" href="/static/img/favicon.svg">
+    <title>{{.MetaTitle}}</title>
+    <link rel="icon" href="{{.FaviconURL}}">
     <meta name="description" content="{{.MetaDesc}}">
+    {{if .NoIndex}}<meta name="robots" content="noindex,nofollow,noarchive">{{end}}
     <link rel="canonical" href="{{.CanonicalURL}}">
-
-    <!-- Open Graph -->
-    <meta property="og:title" content="{{.Flipbook.Title}}">
-    <meta property="og:description" content="{{.MetaDesc}}">
+    <link rel="alternate" type="application/json+oembed" href="{{.OEmbedURL}}" title="{{.MetaTitle}}">
+    <meta property="og:title" content="{{.SocialTitle}}">
+    <meta property="og:description" content="{{.SocialDesc}}">
     <meta property="og:type" content="article">
     <meta property="og:url" content="{{.CanonicalURL}}">
+    <meta property="og:site_name" content="{{.Workspace.Name}}">
     {{if .OGImage}}<meta property="og:image" content="{{.OGImage}}">{{end}}
-
-    <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="{{.Flipbook.Title}}">
-    <meta name="twitter:description" content="{{.MetaDesc}}">
+    <meta name="twitter:title" content="{{.SocialTitle}}">
+    <meta name="twitter:description" content="{{.SocialDesc}}">
     {{if .OGImage}}<meta name="twitter:image" content="{{.OGImage}}">{{end}}
-
-    <!-- JSON-LD Structured Data -->
-    <script type="application/ld+json">
-    {
-        "@context": "https://schema.org",
-        "@type": "PresentationDigitalDocument",
-        "name": "{{.Flipbook.Title}}",
-        "description": "{{.MetaDesc}}",
-        "url": "{{.CanonicalURL}}",
-        {{if .OGImage}}"image": "{{.OGImage}}",{{end}}
-        "numberOfPages": {{.Flipbook.PageCount}},
-        "datePublished": "{{.Flipbook.CreatedAt.Format "2006-01-02"}}"
-    }
-    </script>
-
-    <link rel="stylesheet" href="/static/css/viewer.css?v=9">
+    <link rel="stylesheet" href="/static/css/viewer.css?v=10">
 </head>
-<body>
-    <div id="viewer-wrapper">
-        <div id="landscape-hint">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="10" rx="2"/><line x1="12" y1="17" x2="12" y2="21"/><line x1="8" y1="21" x2="16" y2="21"/></svg>
-            Rotate for best viewing experience
-        </div>
-        <div id="flipbook-container">
-            <button class="nav-overlay" id="nav-prev" aria-label="Previous page">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-            </button>
-            <div id="flipbook"></div>
-            <button class="nav-overlay" id="nav-next" aria-label="Next page">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-            </button>
-        </div>
-
-        <div id="controls">
-            <button id="btn-prev" title="Previous page (Left Arrow)">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-            </button>
-            <span id="page-indicator">
-                <span id="current-page">1</span> / <span id="total-pages">{{.Flipbook.PageCount}}</span>
-            </span>
-            <button id="btn-next" title="Next page (Right Arrow)">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-            </button>
-            <div id="page-slider-container">
-                <input type="range" id="page-slider" min="1" max="{{.Flipbook.PageCount}}" value="1">
-            </div>
-            <div class="controls-spacer"></div>
-            <button id="btn-search" title="Search (Ctrl+F)">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            </button>
-            <button id="btn-grid" title="Grid view (G)">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-            </button>
-            <button id="btn-fullscreen" title="Fullscreen (F)">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
-            </button>
-            <button id="btn-share" title="Share / Embed">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
-            </button>
-        </div>
-        <div id="attribution">
-            Created with <a href="https://metavert.io/flipbook" target="_blank">Flipbook</a>
-        </div>
-
-        <div id="share-modal" class="modal hidden">
-            <div class="modal-overlay" onclick="closeShareModal()"></div>
-            <div class="modal-content">
-                <h3>Share this flipbook</h3>
-                <div class="form-group share-page-option">
-                    <label class="checkbox-label">
-                        <input type="checkbox" id="share-from-page"> Share from current page (<span id="share-page-num">1</span>)
-                    </label>
-                </div>
-                <div class="form-group">
-                    <label>Link</label>
-                    <div class="copy-field">
-                        <input type="text" readonly id="share-link">
-                        <button onclick="copyField('share-link')">Copy</button>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label>Embed code</label>
-                    <div class="copy-field">
-                        <textarea readonly id="embed-code" rows="3"></textarea>
-                        <button onclick="copyField('embed-code')">Copy</button>
-                    </div>
-                </div>
-                <button class="btn-close" onclick="closeShareModal()">Close</button>
-            </div>
-        </div>
-
-        <!-- Search Overlay -->
-        <div id="search-bar" class="hidden">
-            <div id="search-bar-inner">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="search-icon"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                <input type="text" id="search-input" placeholder="Search in slides..." autocomplete="off">
-                <span id="search-status"></span>
-                <button id="search-prev" title="Previous match" disabled>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-                </button>
-                <button id="search-next" title="Next match" disabled>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-                </button>
-                <button id="search-close" title="Close search">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                </button>
-            </div>
-        </div>
-
-        <!-- Grid View Overlay -->
-        <div id="grid-overlay" class="hidden">
-            <div id="grid-header">
-                <h3>All Pages</h3>
-                <button id="btn-grid-close" title="Close grid">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                </button>
-            </div>
-            <div id="grid-container"></div>
-        </div>
-    </div>
-
-    <!-- SEO: Server-rendered slide content (hidden from visual users, visible to crawlers) -->
-    {{if .PageTexts}}
-    <article id="seo-content" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden;">
-        <h1>{{.Flipbook.Title}}</h1>
-        {{if .Flipbook.Description}}<p>{{.Flipbook.Description}}</p>{{end}}
-        {{range $i, $text := .PageTexts}}
-        {{if $text}}
-        <section>
-            <h2>Slide {{add $i 1}}</h2>
-            <p>{{$text}}</p>
-        </section>
-        {{end}}
-        {{end}}
-    </article>
-    {{end}}
-
-    <script>
-        window.FLIPBOOK_DATA = {
-            id: "{{.Flipbook.ID}}",
-            title: "{{.Flipbook.Title}}",
-            slug: "{{.Flipbook.Slug}}",
-            baseURL: "{{.BaseURL}}",
-            pageCount: {{.Flipbook.PageCount}},
-            pageWidth: {{.Flipbook.PageWidth}},
-            pageHeight: {{.Flipbook.PageHeight}},
-            pages: [{{range $i, $p := .Pages}}"{{$p}}"{{if not (last $i $.Flipbook.PageCount)}},{{end}}{{end}}],
-            thumbs: [{{range $i, $t := .Thumbs}}"{{$t}}"{{if not (last $i $.Flipbook.PageCount)}},{{end}}{{end}}],
-            pageTexts: {{.PageTextsJSON}}
-        };
-    </script>
-    <script src="/static/js/page-flip.browser.js"></script>
-    <script src="/static/js/viewer.js?v=9"></script>
+<body class="viewer-page" style="--reader-primary:{{.PrimaryColor}};--reader-background:{{.Background}}">
+    {{template "public_reader" .}}
+    <script>window.FLIPBOOK_DATA = {{.DataJSON}};</script>
+    <script src="/static/js/viewer.js?v=10" defer></script>
 </body>
 </html>
 {{end}}

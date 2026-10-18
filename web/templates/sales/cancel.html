@@ -1,0 +1,33 @@
+{{define "sales_cancel"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex,nofollow,noarchive">
+    <title>Checkout cancelled</title>
+    <link rel="icon" type="image/svg+xml" href="/static/img/favicon.svg">
+    <link rel="stylesheet" href="/static/css/sales.css">
+</head>
+<body>
+<main class="sales-page">
+    <section class="sales-card" aria-labelledby="cancel-title">
+        {{if .Paid}}
+        <p class="sales-eyebrow">Payment confirmed</p>
+        <h1 id="cancel-title">Your purchase is complete</h1>
+        <p>Your payment for <strong>{{.Flipbook.Title}}</strong> completed before you returned.</p>
+        <a class="sales-button sales-button-primary" href="{{.ViewerURL}}">Read now</a>
+        {{else}}
+        <p class="sales-eyebrow">Checkout cancelled</p>
+        <h1 id="cancel-title">No payment was completed</h1>
+        <p>You can return to <strong>{{.Flipbook.Title}}</strong> or restart checkout when you are ready.</p>
+        <div class="sales-actions">
+            <a class="sales-button sales-button-primary" href="{{.CheckoutURL}}">Restart checkout</a>
+            <a class="sales-button" href="{{.ViewerURL}}">Return to preview</a>
+        </div>
+        {{end}}
+    </section>
+</main>
+</body>
+</html>
+{{end}}

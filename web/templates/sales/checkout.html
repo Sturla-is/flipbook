@@ -1,0 +1,45 @@
+{{define "sales_checkout"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex,nofollow,noarchive">
+    <title>Buy {{.Quote.Flipbook.Title}}</title>
+    <link rel="icon" type="image/svg+xml" href="/static/img/favicon.svg">
+    <link rel="stylesheet" href="/static/css/sales.css">
+</head>
+<body>
+<main class="sales-page">
+    <section class="sales-card" aria-labelledby="checkout-title">
+        <a class="sales-back" href="/v/{{.Quote.Flipbook.Slug}}">&larr; Back to publication</a>
+        <p class="sales-eyebrow">Digital purchase</p>
+        <h1 id="checkout-title">{{.Quote.Flipbook.Title}}</h1>
+        {{if .Quote.Flipbook.Description}}<p class="sales-muted">{{.Quote.Flipbook.Description}}</p>{{end}}
+        <p class="sales-price"><span>{{.Quote.Price}}</span> {{.Quote.Flipbook.Sales.Currency}}</p>
+        <p class="sales-muted">One-time purchase. Read all {{.Quote.Flipbook.PageCount}} pages on this device after payment.</p>
+        {{if eq .Quote.Flipbook.Sales.PreviewPages 0}}
+        <p class="sales-preview">This publication does not include free preview pages. Purchase to start reading.</p>
+        {{else}}
+        <p class="sales-preview">You can preview {{.Quote.Flipbook.Sales.PreviewPages}} of {{.Quote.Flipbook.PageCount}} pages before buying.</p>
+        {{end}}
+        {{if not .Quote.Configured}}
+        <div class="sales-notice sales-notice-error" role="alert">Checkout is temporarily unavailable. Please try again later.</div>
+        {{end}}
+        <form method="post" action="{{.Endpoint}}" data-sales-checkout>
+            {{if .CSRFToken}}<input type="hidden" name="csrf_token" value="{{.CSRFToken}}">{{end}}
+            <div class="sales-field">
+                <label for="sales-email">Email for your purchase</label>
+                <input id="sales-email" name="email" type="email" value="{{.Email}}" autocomplete="email" inputmode="email" maxlength="254" required aria-describedby="sales-email-help">
+                <p id="sales-email-help" class="sales-help">Used for your receipt and purchase record. Your email is not displayed publicly.</p>
+            </div>
+            <button class="sales-button sales-button-primary" type="submit" {{if not .Quote.Configured}}disabled{{end}}>Continue to secure checkout</button>
+            <div id="sales-checkout-status" class="sales-status" role="status" aria-live="polite"></div>
+        </form>
+        <p class="sales-fine-print">Payment is processed by Stripe. Card details are never handled by this site.</p>
+    </section>
+</main>
+<script src="/static/js/sales.js" defer></script>
+</body>
+</html>
+{{end}}

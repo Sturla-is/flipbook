@@ -1,26 +1,53 @@
 package storage
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
+// Options configures public URLs and the optional remote object backend. The
+// zero value keeps the existing local /data/flipbooks behavior.
+type Options struct {
+	PublicBaseURL string
+	CDNBaseURL    string
+	ObjectStore   ObjectStore
+}
+
 type Storage struct {
-	BaseDir string
+	BaseDir       string
+	publicBaseURL string
+	cdnBaseURL    string
+	objects       ObjectStore
 }
 
 func New(baseDir string) *Storage {
-	os.MkdirAll(baseDir, 0755)
-	return &Storage{BaseDir: baseDir}
+	return NewWithOptions(baseDir, Options{})
+}
+
+func NewWithOptions(baseDir string, options Options) *Storage {
+	_ = os.MkdirAll(baseDir, 0755)
+	if options.PublicBaseURL == "" {
+		options.PublicBaseURL = "/data/flipbooks"
+	}
+	return &Storage{
+		BaseDir:       baseDir,
+		publicBaseURL: strings.TrimRight(options.PublicBaseURL, "/"),
+		cdnBaseURL:    strings.TrimRight(options.CDNBaseURL, "/"),
+		objects:       options.ObjectStore,
+	}
 }
 
 func (s *Storage) FlipbookDir(id string) string {
 	return filepath.Join(s.BaseDir, id)
 }
 
+// PagesDir returns the legacy live directory. Revision-aware workers should
+// use RevisionPagesDir or CurrentPagesDir instead.
 func (s *Storage) PagesDir(id string) string {
 	return filepath.Join(s.BaseDir, id, "pages")
 }
@@ -37,26 +64,10 @@ func (s *Storage) PDFPath(id string) string {
 	return filepath.Join(s.BaseDir, id, "converted.pdf")
 }
 
+// SaveUpload streams an upload to disk without a size limit. New HTTP callers
+// should use SaveUploadWithLimit or SaveUploadStream.
 func (s *Storage) SaveUpload(id, filename string, r io.Reader) (string, error) {
-	dir := s.FlipbookDir(id)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return "", fmt.Errorf("create flipbook dir: %w", err)
-	}
-
-	ext := filepath.Ext(filename)
-	dst := s.OriginalPath(id, ext)
-
-	f, err := os.Create(dst)
-	if err != nil {
-		return "", fmt.Errorf("create file: %w", err)
-	}
-	defer f.Close()
-
-	if _, err := io.Copy(f, r); err != nil {
-		return "", fmt.Errorf("write file: %w", err)
-	}
-
-	return dst, nil
+	return s.SaveUploadWithLimit(id, filename, r, 0)
 }
 
 func (s *Storage) EnsureDirs(id string) error {
@@ -67,14 +78,13 @@ func (s *Storage) EnsureDirs(id string) error {
 }
 
 func (s *Storage) DeleteFlipbook(id string) error {
-	return os.RemoveAll(s.FlipbookDir(id))
+	return s.DeleteFlipbookContext(context.Background(), id)
 }
 
-// DetectPageFormat checks the actual filenames on disk to determine
-// pdftoppm's naming pattern (page-1.png vs page-01.png vs page-001.png).
+// DetectPageFormat checks the active revision (or legacy output) to determine
+// the page filename pattern used by existing viewers.
 func (s *Storage) DetectPageFormat(id string) string {
-	pagesDir := s.PagesDir(id)
-	// Check common patterns in order of likelihood
+	pagesDir := s.CurrentPagesDir(id)
 	for _, pattern := range []string{"page-1.png", "page-01.png", "page-001.png", "page-0001.png"} {
 		if _, err := os.Stat(filepath.Join(pagesDir, pattern)); err == nil {
 			switch pattern {
@@ -89,27 +99,38 @@ func (s *Storage) DetectPageFormat(id string) string {
 			}
 		}
 	}
-	return "%d" // fallback
+	return "%d"
 }
 
 func (s *Storage) PageImageURL(id, format string, pageNum int) string {
-	return fmt.Sprintf("/data/flipbooks/%s/pages/page-"+format+".png", id, pageNum)
+	if revision, err := s.CurrentRevision(id); err == nil && revision > 0 {
+		return s.RevisionPageImageURL(id, format, pageNum, revision)
+	}
+	return s.assetURL(fmt.Sprintf("%s/pages/page-"+format+".png", id, pageNum))
 }
 
 func (s *Storage) ThumbImageURL(id, format string, pageNum int) string {
-	return fmt.Sprintf("/data/flipbooks/%s/thumbs/page-"+format+".png", id, pageNum)
+	if revision, err := s.CurrentRevision(id); err == nil && revision > 0 {
+		return s.RevisionThumbImageURL(id, format, pageNum, revision)
+	}
+	return s.assetURL(fmt.Sprintf("%s/thumbs/page-"+format+".png", id, pageNum))
 }
 
-// HasPages checks if any converted page images exist on disk.
+// HasPages checks if any converted page images exist in the active revision or
+// legacy output.
 func (s *Storage) HasPages(id string) bool {
-	matches, _ := filepath.Glob(filepath.Join(s.PagesDir(id), "page-*.png"))
+	matches, _ := filepath.Glob(filepath.Join(s.CurrentPagesDir(id), "page-*.png"))
 	return len(matches) > 0
 }
 
-// LoadPageTexts reads the extracted text.json for a flipbook.
-// Returns nil (not an error) if the file doesn't exist.
+// LoadPageTexts reads text.json for the active revision. It returns nil when
+// no valid text artifact exists, preserving the original API contract.
 func (s *Storage) LoadPageTexts(id string) []string {
-	data, err := os.ReadFile(filepath.Join(s.FlipbookDir(id), "text.json"))
+	dir, err := s.CurrentRevisionDir(id)
+	if err != nil {
+		return nil
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "text.json"))
 	if err != nil {
 		return nil
 	}
@@ -118,4 +139,15 @@ func (s *Storage) LoadPageTexts(id string) []string {
 		return nil
 	}
 	return texts
+}
+
+func (s *Storage) assetURL(name string) string {
+	base := s.cdnBaseURL
+	if base == "" {
+		base = s.publicBaseURL
+	}
+	if base == "" {
+		base = "/data/flipbooks"
+	}
+	return strings.TrimRight(base, "/") + "/" + strings.TrimLeft(filepath.ToSlash(name), "/")
 }

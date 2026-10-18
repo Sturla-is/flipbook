@@ -1,235 +1,602 @@
-document.addEventListener('DOMContentLoaded', function() {
-    var fileInput = document.getElementById('file');
-    var dropzone = document.getElementById('dropzone');
-    var fileInfo = document.getElementById('file-info');
-    var fileName = document.getElementById('file-name');
-    var fileSize = document.getElementById('file-size');
-    var form = document.getElementById('upload-form');
-    var importForm = document.getElementById('import-form');
+'use strict';
 
-    if (!form && !importForm) return;
+document.documentElement.classList.add('js');
 
-    // Tab switching
-    var tabs = document.querySelectorAll('.upload-tab');
-    tabs.forEach(function(tab) {
-        tab.addEventListener('click', function() {
-            tabs.forEach(function(t) { t.classList.remove('active'); });
-            tab.classList.add('active');
-            document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('active'); });
-            document.getElementById(tab.getAttribute('data-tab')).classList.add('active');
-        });
-    });
+(function () {
+    var pollingInterval = 1500;
+    var pollingTimeout = 15 * 60 * 1000;
 
-    // File selection display
-    if (fileInput) {
-        fileInput.addEventListener('change', function() {
-            if (fileInput.files.length > 0) {
-                var f = fileInput.files[0];
-                fileName.textContent = f.name;
-                fileSize.textContent = formatSize(f.size);
-                fileInfo.classList.remove('hidden');
-                dropzone.querySelector('.dropzone-content').classList.add('hidden');
-            }
-        });
-
-        // Drag and drop styling
-        dropzone.addEventListener('dragover', function(e) {
-            e.preventDefault();
-            dropzone.classList.add('dragover');
-        });
-        dropzone.addEventListener('dragleave', function() {
-            dropzone.classList.remove('dragover');
-        });
-        dropzone.addEventListener('drop', function() {
-            dropzone.classList.remove('dragover');
-        });
-    }
-
-    // File upload with progress tracking
-    if (form) {
-        form.addEventListener('submit', function(e) {
-            e.preventDefault();
-            if (!fileInput.files.length) return;
-
-            document.getElementById('upload-section').classList.add('hidden');
-            document.getElementById('progress-section').classList.remove('hidden');
-
-            var uploadFile = fileInput.files[0];
-            document.getElementById('progress-title').textContent = 'Processing: ' + uploadFile.name;
-
-            activateStep('step-upload');
-            document.getElementById('upload-progress').classList.remove('hidden');
-
-            var formData = new FormData(form);
-            var xhr = new XMLHttpRequest();
-            var startTime = Date.now();
-
-            xhr.upload.addEventListener('progress', function(e) {
-                if (e.lengthComputable) {
-                    var pct = (e.loaded / e.total) * 100;
-                    document.getElementById('progress-fill').style.width = pct + '%';
-
-                    var elapsed = (Date.now() - startTime) / 1000;
-                    var speed = e.loaded / elapsed;
-                    var remaining = (e.total - e.loaded) / speed;
-
-                    var detail = Math.round(pct) + '% (' + formatSize(e.loaded) + ' / ' + formatSize(e.total) + ')';
-                    if (pct < 100 && remaining > 1) {
-                        detail += ' — ~' + Math.ceil(remaining) + 's remaining';
-                    }
-                    document.getElementById('upload-detail').textContent = detail;
-                }
-            });
-
-            xhr.addEventListener('load', function() {
-                if (xhr.status >= 200 && xhr.status < 400) {
-                    completeStep('step-upload');
-                    document.getElementById('upload-detail').textContent = formatSize(uploadFile.size) + ' uploaded';
-                    document.getElementById('upload-progress').classList.add('hidden');
-
-                    try {
-                        var response = JSON.parse(xhr.responseText);
-                        startPolling(response.id);
-                    } catch(err) {
-                        window.location.href = '/admin';
-                    }
-                } else {
-                    showError(xhr.responseText || 'Upload failed');
-                }
-            });
-
-            xhr.addEventListener('error', function() {
-                showError('Network error — please check your connection and try again.');
-            });
-
-            xhr.open('POST', '/admin/upload');
-            xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-            xhr.send(formData);
-        });
-    }
-
-    // URL import
-    if (importForm) {
-        importForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            var urlInput = document.getElementById('import-url');
-            if (!urlInput.value.trim()) return;
-
-            document.getElementById('upload-section').classList.add('hidden');
-            document.getElementById('progress-section').classList.remove('hidden');
-            document.getElementById('progress-title').textContent = 'Importing presentation...';
-
-            // Update step label for URL import
-            var uploadLabel = document.getElementById('upload-label');
-            if (uploadLabel) uploadLabel.textContent = 'Downloading from Google Slides';
-
-            activateStep('step-upload');
-            document.getElementById('upload-progress').classList.add('hidden');
-
-            var formData = new FormData(importForm);
-            var xhr = new XMLHttpRequest();
-
-            xhr.addEventListener('load', function() {
-                if (xhr.status >= 200 && xhr.status < 400) {
-                    completeStep('step-upload');
-                    document.getElementById('upload-detail').textContent = 'Downloaded';
-
-                    try {
-                        var response = JSON.parse(xhr.responseText);
-                        startPolling(response.id);
-                    } catch(err) {
-                        window.location.href = '/admin';
-                    }
-                } else {
-                    showError(xhr.responseText || 'Import failed');
-                }
-            });
-
-            xhr.addEventListener('error', function() {
-                showError('Network error — please check your connection and try again.');
-            });
-
-            xhr.open('POST', '/admin/import');
-            xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-            xhr.send(formData);
-        });
-    }
-
-    function startPolling(flipbookId) {
-        activateStep('step-queue');
-        document.getElementById('queue-detail').textContent = 'Waiting for conversion worker...';
-        var convertStart = null;
-
-        var pollInterval = setInterval(function() {
-            fetch('/api/flipbooks/' + flipbookId + '/status')
-                .then(function(res) { return res.json(); })
-                .then(function(data) {
-                    if (data.status === 'pending') {
-                        activateStep('step-queue');
-                        document.getElementById('queue-detail').textContent = 'Waiting for conversion worker...';
-                    } else if (data.status === 'converting') {
-                        completeStep('step-queue');
-                        document.getElementById('queue-detail').textContent = 'Picked up by worker';
-                        activateStep('step-convert');
-                        if (!convertStart) convertStart = Date.now();
-                        var elapsed = Math.round((Date.now() - convertStart) / 1000);
-                        document.getElementById('convert-detail').textContent =
-                            'Converting pages to images... (' + elapsed + 's elapsed)';
-                    } else if (data.status === 'ready') {
-                        clearInterval(pollInterval);
-                        completeStep('step-queue');
-                        completeStep('step-convert');
-                        document.getElementById('convert-detail').textContent = data.page_count + ' pages rendered';
-                        completeStep('step-done');
-                        document.getElementById('done-detail').innerHTML =
-                            '<a href="/v/' + data.slug + '" class="btn btn-primary" style="margin-top:8px;">View Flipbook</a> ' +
-                            '<a href="/admin/flipbooks/' + flipbookId + '" class="btn" style="margin-top:8px;">Manage</a>';
-                        document.getElementById('progress-title').textContent = 'Flipbook ready!';
-                    } else if (data.status === 'error') {
-                        clearInterval(pollInterval);
-                        completeStep('step-queue');
-                        failStep('step-convert');
-                        showError(data.error || 'Conversion failed');
-                    }
-                })
-                .catch(function() {
-                    // Network blip, keep polling
-                });
-        }, 1500);
-    }
-
-    function activateStep(stepId) {
-        var step = document.getElementById(stepId);
-        step.classList.remove('pending');
-        step.classList.remove('failed');
-        step.querySelector('.tracker-spinner').classList.remove('hidden');
-        step.querySelector('.tracker-check').classList.add('hidden');
-    }
-
-    function completeStep(stepId) {
-        var step = document.getElementById(stepId);
-        step.classList.remove('pending');
-        step.classList.remove('failed');
-        step.classList.add('completed');
-        step.querySelector('.tracker-spinner').classList.add('hidden');
-        step.querySelector('.tracker-check').classList.remove('hidden');
-    }
-
-    function failStep(stepId) {
-        var step = document.getElementById(stepId);
-        step.classList.remove('pending');
-        step.classList.add('failed');
-        step.querySelector('.tracker-spinner').classList.add('hidden');
-    }
-
-    function showError(message) {
-        document.getElementById('error-message').classList.remove('hidden');
-        document.getElementById('error-text').textContent = message;
+    function byId(id) {
+        return document.getElementById(id);
     }
 
     function formatSize(bytes) {
+        if (!Number.isFinite(bytes) || bytes < 0) return '';
         if (bytes < 1024) return bytes + ' B';
         if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
-        return (bytes / 1048576).toFixed(1) + ' MB';
+        if (bytes < 1073741824) return (bytes / 1048576).toFixed(1) + ' MB';
+        return (bytes / 1073741824).toFixed(1) + ' GB';
     }
-});
+
+    function delay(milliseconds) {
+        return new Promise(function (resolve) { window.setTimeout(resolve, milliseconds); });
+    }
+
+    function showClientError(message) {
+        var region = byId('client-error');
+        if (!region) return;
+        region.textContent = message;
+        region.classList.remove('hidden');
+    }
+
+    function showClientStatus(message) {
+        var region = byId('client-status');
+        if (!region) return;
+        region.textContent = message;
+        region.classList.remove('hidden');
+    }
+
+    function clearClientMessages() {
+        ['client-error', 'client-status'].forEach(function (id) {
+            var region = byId(id);
+            if (region) {
+                region.textContent = '';
+                region.classList.add('hidden');
+            }
+        });
+    }
+
+    function initNavigation() {
+        var toggle = document.querySelector('[data-nav-toggle]');
+        var links = document.querySelector('[data-nav-links]');
+        if (!toggle || !links) return;
+        function close() {
+            links.classList.remove('nav-open');
+            toggle.setAttribute('aria-expanded', 'false');
+        }
+        toggle.addEventListener('click', function () {
+            var open = links.classList.toggle('nav-open');
+            toggle.setAttribute('aria-expanded', String(open));
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape') {
+                close();
+                toggle.focus();
+            }
+        });
+        window.addEventListener('resize', function () {
+            if (window.innerWidth > 900) close();
+        });
+    }
+
+    function initTabs() {
+        var tabs = Array.prototype.slice.call(document.querySelectorAll('.upload-tab'));
+        if (!tabs.length) return;
+        function activate(tab, focus) {
+            tabs.forEach(function (candidate) {
+                var selected = candidate === tab;
+                candidate.classList.toggle('active', selected);
+                candidate.setAttribute('aria-selected', String(selected));
+                candidate.tabIndex = selected ? 0 : -1;
+                var panel = byId(candidate.getAttribute('data-tab'));
+                if (panel) {
+                    panel.classList.toggle('active', selected);
+                    panel.hidden = !selected;
+                }
+            });
+            if (focus) tab.focus();
+        }
+        tabs.forEach(function (tab, index) {
+            tab.addEventListener('click', function () { activate(tab, false); });
+            tab.addEventListener('keydown', function (event) {
+                var target = null;
+                if (event.key === 'ArrowRight') target = tabs[(index + 1) % tabs.length];
+                if (event.key === 'ArrowLeft') target = tabs[(index - 1 + tabs.length) % tabs.length];
+                if (event.key === 'Home') target = tabs[0];
+                if (event.key === 'End') target = tabs[tabs.length - 1];
+                if (target) {
+                    event.preventDefault();
+                    activate(target, true);
+                }
+            });
+            var panel = byId(tab.getAttribute('data-tab'));
+            if (panel) panel.hidden = !tab.classList.contains('active');
+        });
+    }
+
+    function initConfirmations() {
+        document.querySelectorAll('form[data-confirm]').forEach(function (form) {
+            form.addEventListener('submit', function (event) {
+                if (!window.confirm(form.getAttribute('data-confirm'))) event.preventDefault();
+            });
+        });
+        document.querySelectorAll('form[method="POST"]').forEach(function (form) {
+            if (form.matches('[data-upload-form], [data-import-form], [data-bulk-form], [data-confirm]')) return;
+            form.addEventListener('submit', function () {
+                form.setAttribute('aria-busy', 'true');
+                window.setTimeout(function () {
+                    form.querySelectorAll('button[type="submit"]').forEach(function (button) { button.disabled = true; });
+                }, 0);
+            });
+        });
+    }
+
+    function copyText(value) {
+        if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(value);
+        return new Promise(function (resolve, reject) {
+            var temporary = document.createElement('textarea');
+            temporary.value = value;
+            temporary.setAttribute('readonly', '');
+            temporary.style.position = 'fixed';
+            temporary.style.opacity = '0';
+            document.body.appendChild(temporary);
+            temporary.select();
+            try {
+                if (document.execCommand('copy')) resolve();
+                else reject(new Error('Copy command was rejected'));
+            } catch (error) {
+                reject(error);
+            } finally {
+                temporary.remove();
+            }
+        });
+    }
+
+    function initCopyButtons() {
+        document.querySelectorAll('[data-copy-target]').forEach(function (button) {
+            button.addEventListener('click', function () {
+                var target = byId(button.getAttribute('data-copy-target'));
+                if (!target) return;
+                var value = 'value' in target ? target.value : target.textContent;
+                copyText(value).then(function () {
+                    var previous = button.textContent;
+                    button.textContent = 'Copied';
+                    showClientStatus('Copied to clipboard.');
+                    window.setTimeout(function () { button.textContent = previous; }, 1800);
+                }).catch(function () {
+                    if (target.focus) target.focus();
+                    if (target.select) target.select();
+                    showClientError('Automatic copy was unavailable. The text is selected; copy it manually.');
+                });
+            });
+        });
+    }
+
+    function initBulkActions() {
+        var form = document.querySelector('[data-bulk-form]');
+        if (!form) return;
+        var items = Array.prototype.slice.call(form.querySelectorAll('[data-bulk-item]'));
+        var selectAll = form.querySelector('[data-select-all]');
+        var count = form.querySelector('[data-selected-count]');
+        var action = form.querySelector('[data-bulk-action]');
+        function update() {
+            var selected = items.filter(function (item) { return item.checked; }).length;
+            if (count) count.textContent = String(selected);
+            if (selectAll) {
+                selectAll.checked = selected > 0 && selected === items.length;
+                selectAll.indeterminate = selected > 0 && selected < items.length;
+            }
+        }
+        if (selectAll) {
+            selectAll.addEventListener('change', function () {
+                items.forEach(function (item) { item.checked = selectAll.checked; });
+                update();
+            });
+        }
+        items.forEach(function (item) { item.addEventListener('change', update); });
+        form.addEventListener('submit', function (event) {
+            clearClientMessages();
+            var selected = items.filter(function (item) { return item.checked; }).length;
+            if (!selected) {
+                event.preventDefault();
+                showClientError('Select at least one publication before applying a bulk action.');
+                return;
+            }
+            var currentAction = action ? action.value : '';
+            var tags = byId('bulk-tags');
+            var collection = byId('bulk-collection');
+            if ((currentAction === 'add_tags' || currentAction === 'remove_tags') && tags && !tags.value.trim()) {
+                event.preventDefault();
+                showClientError('Enter at least one tag for this bulk action.');
+                tags.focus();
+                return;
+            }
+            if ((currentAction === 'add_collection' || currentAction === 'remove_collection') && collection && !collection.value) {
+                event.preventDefault();
+                showClientError('Choose a collection for this bulk action.');
+                collection.focus();
+                return;
+            }
+            if (currentAction === 'trash' && !window.confirm('Move the selected publications to trash? Public access stops immediately.')) {
+                event.preventDefault();
+                return;
+            }
+            form.setAttribute('aria-busy', 'true');
+        });
+        update();
+    }
+
+    function makeCell(row, className) {
+        var cell = document.createElement('td');
+        if (className) cell.className = className;
+        row.appendChild(cell);
+        return cell;
+    }
+
+    function createQueueRow(file, index) {
+        var body = byId('upload-queue-body');
+        var row = document.createElement('tr');
+        row.id = 'upload-item-' + index;
+        var heading = document.createElement('th');
+        heading.scope = 'row';
+        var name = document.createElement('strong');
+        name.textContent = file.name;
+        var size = document.createElement('span');
+        size.className = 'table-secondary';
+        size.textContent = formatSize(file.size);
+        heading.appendChild(name);
+        heading.appendChild(size);
+        row.appendChild(heading);
+        row._uploadCell = makeCell(row);
+        row._conversionCell = makeCell(row);
+        row._resultCell = makeCell(row);
+        row._uploadCell.textContent = 'Waiting';
+        row._conversionCell.textContent = 'Not started';
+        row._resultCell.textContent = '—';
+        body.appendChild(row);
+        return row;
+    }
+
+    function responseError(xhr) {
+        var fallback = 'The request failed with HTTP ' + xhr.status + '.';
+        try {
+            var response = JSON.parse(xhr.responseText);
+            if (response.error) return response.error;
+            if (response.items && response.items[0] && response.items[0].error) return response.items[0].error;
+        } catch (ignore) {
+            if (xhr.responseText && xhr.responseText.length < 500) return xhr.responseText;
+        }
+        return fallback;
+    }
+
+    function uploadRequest(form, file, single, row) {
+        return new Promise(function (resolve, reject) {
+            var data = file ? new FormData() : new FormData(form);
+            if (file) {
+                Array.prototype.slice.call(form.querySelectorAll('input[type="hidden"][name]')).forEach(function (input) {
+                    data.append(input.name, input.value);
+                });
+                if (single) {
+                    var title = form.querySelector('input[name="title"]');
+                    if (title) data.append('title', title.value);
+                }
+                data.append('file', file, file.name);
+            }
+            var xhr = new XMLHttpRequest();
+            var started = Date.now();
+            xhr.open('POST', form.action);
+            xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+            xhr.setRequestHeader('Accept', 'application/json');
+            xhr.timeout = 30 * 60 * 1000;
+            xhr.upload.addEventListener('progress', function (event) {
+                if (!event.lengthComputable) return;
+                var percentage = Math.round((event.loaded / event.total) * 100);
+                row._uploadCell.textContent = 'Uploading ' + percentage + '%';
+                var progress = byId('upload-progress');
+                var fill = byId('progress-fill');
+                var detail = byId('upload-detail');
+                if (progress) {
+                    progress.classList.remove('hidden');
+                    progress.setAttribute('aria-valuenow', String(percentage));
+                }
+                if (fill) fill.style.width = percentage + '%';
+                if (detail) {
+                    var elapsed = Math.max((Date.now() - started) / 1000, 0.1);
+                    var speed = event.loaded / elapsed;
+                    var remaining = speed > 0 ? Math.ceil((event.total - event.loaded) / speed) : 0;
+                    detail.textContent = formatSize(event.loaded) + ' of ' + formatSize(event.total) + (remaining > 1 && percentage < 100 ? ' · about ' + remaining + 's remaining' : '');
+                }
+            });
+            xhr.addEventListener('load', function () {
+                var response = null;
+                try { response = JSON.parse(xhr.responseText); } catch (ignore) { /* handled below */ }
+                if (xhr.status < 200 || xhr.status >= 300 || !response) {
+                    reject(new Error(responseError(xhr)));
+                    return;
+                }
+                var item = response.items && response.items.length ? response.items[0] : response;
+                if (!item || !item.id) {
+                    reject(new Error(item && item.error ? item.error : responseError(xhr)));
+                    return;
+                }
+                resolve(item);
+            });
+            xhr.addEventListener('error', function () { reject(new Error('Network error during upload. Check your connection before retrying.')); });
+            xhr.addEventListener('timeout', function () { reject(new Error('Upload timed out. Check the library before retrying so you do not create duplicates.')); });
+            xhr.addEventListener('abort', function () { reject(new Error('Upload was cancelled.')); });
+            if (!file) {
+                row._uploadCell.textContent = 'Downloading from Google Slides';
+            }
+            xhr.send(data);
+        });
+    }
+
+    function addResultLink(row, href, text, primary) {
+        var link = document.createElement('a');
+        link.href = href;
+        link.textContent = text;
+        link.className = primary ? 'btn btn-primary btn-sm' : 'btn btn-sm';
+        row._resultCell.appendChild(link);
+    }
+
+    function setQueueError(row, message, conversion) {
+        var cell = conversion ? row._conversionCell : row._uploadCell;
+        cell.textContent = message;
+        cell.classList.add('field-error');
+        row._resultCell.textContent = '';
+    }
+
+    function activeJob(jobs) {
+        if (!jobs || !jobs.length) return null;
+        for (var index = 0; index < jobs.length; index += 1) {
+            var status = jobs[index].status;
+            if (status === 'queued' || status === 'running' || status === 'retry') return jobs[index];
+        }
+        return null;
+    }
+
+    function pollPublication(statusURL, row) {
+        var deadline = Date.now() + pollingTimeout;
+        var networkFailures = 0;
+        function check() {
+            if (Date.now() > deadline) {
+                row._conversionCell.textContent = 'Status unknown: polling timed out. Open Manage to check the real conversion state.';
+                return Promise.resolve(false);
+            }
+            return fetch(statusURL, { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' }).then(function (response) {
+                if (!response.ok) throw new Error('Status request failed with HTTP ' + response.status + '.');
+                return response.json();
+            }).then(function (data) {
+                networkFailures = 0;
+                var job = activeJob(data.jobs);
+                var progress = job && Number.isFinite(job.progress) ? job.progress : (data.revisions && data.revisions[0] ? data.revisions[0].progress : 0);
+                if (data.status === 'ready' && !job) {
+                    row._conversionCell.textContent = 'Ready · ' + data.page_count + ' pages';
+                    row._resultCell.textContent = '';
+                    addResultLink(row, '/admin/flipbooks/' + data.id, 'Manage', false);
+                    addResultLink(row, '/v/' + data.slug, 'Preview', true);
+                    return true;
+                }
+                if (data.status === 'error') {
+                    row._conversionCell.textContent = data.error || 'Conversion failed';
+                    row._conversionCell.classList.add('field-error');
+                    row._resultCell.textContent = '';
+                    addResultLink(row, '/admin/flipbooks/' + data.id, 'Review and retry', false);
+                    return true;
+                }
+                row._conversionCell.textContent = (data.status || 'pending') + (progress ? ' · ' + progress + '%' : '') + (job && job.progress_message ? ' · ' + job.progress_message : '');
+                return delay(pollingInterval).then(check);
+            }).catch(function (error) {
+                networkFailures += 1;
+                if (networkFailures >= 5) {
+                    row._conversionCell.textContent = 'Status unknown: repeated status-request failures. Open Manage to check the real conversion state. ' + error.message;
+                    return false;
+                }
+                row._conversionCell.textContent = 'Status request failed; retrying (' + networkFailures + '/5). Conversion may still be running.';
+                return delay(pollingInterval * networkFailures).then(check);
+            });
+        }
+        return check();
+    }
+
+    function initUploadQueue() {
+        var form = document.querySelector('[data-upload-form]');
+        var importForm = document.querySelector('[data-import-form]');
+        if (!form && !importForm) return;
+        var input = byId('file');
+        var info = byId('file-info');
+        var list = byId('file-list');
+        if (input) {
+            input.addEventListener('change', function () {
+                list.textContent = '';
+                Array.prototype.slice.call(input.files).forEach(function (file) {
+                    var item = document.createElement('li');
+                    item.textContent = file.name + ' · ' + formatSize(file.size);
+                    list.appendChild(item);
+                });
+                info.classList.toggle('hidden', !input.files.length);
+            });
+            var dropzone = byId('dropzone');
+            ['dragenter', 'dragover'].forEach(function (name) {
+                dropzone.addEventListener(name, function (event) {
+                    event.preventDefault();
+                    dropzone.classList.add('dragover');
+                });
+            });
+            ['dragleave', 'drop'].forEach(function (name) {
+                dropzone.addEventListener(name, function () { dropzone.classList.remove('dragover'); });
+            });
+        }
+
+        function begin(files, sourceForm, isImport) {
+            clearClientMessages();
+            byId('upload-section').classList.add('hidden');
+            byId('progress-section').classList.remove('hidden');
+            byId('upload-queue-body').textContent = '';
+            var created = 0;
+            var failed = 0;
+            var sequence = Promise.resolve();
+            files.forEach(function (file, index) {
+                sequence = sequence.then(function () {
+                    var row = createQueueRow(file, index);
+                    row._uploadCell.textContent = isImport ? 'Requesting import' : 'Uploading 0%';
+                    return uploadRequest(sourceForm, isImport ? null : file, files.length === 1, row).then(function (item) {
+                        created += 1;
+                        row._uploadCell.textContent = 'Uploaded';
+                        row._resultCell.textContent = '';
+                        addResultLink(row, item.manage_url || '/admin/flipbooks/' + item.id, 'Manage', false);
+                        if (item.error) {
+                            failed += 1;
+                            setQueueError(row, item.error, true);
+                            addResultLink(row, item.manage_url || '/admin/flipbooks/' + item.id, 'Review and retry', false);
+                            return;
+                        }
+                        row._conversionCell.textContent = 'Queued';
+                        return pollPublication(item.status_url || '/admin/flipbooks/' + item.id + '/status', row);
+                    }).catch(function (error) {
+                        failed += 1;
+                        setQueueError(row, error.message, false);
+                        row._conversionCell.textContent = 'Not started';
+                    });
+                });
+            });
+            sequence.then(function () {
+                byId('queue-summary').textContent = created + ' publication(s) created; ' + failed + ' file error(s). Review each row for its actual conversion state.';
+                var progress = byId('upload-progress');
+                if (progress) progress.classList.add('hidden');
+                if (failed) showClientError(failed + ' file(s) need attention. No failed item is reported as ready.');
+                else showClientStatus('All files were uploaded. Review the conversion results above.');
+            });
+        }
+
+        if (form) {
+            form.addEventListener('submit', function (event) {
+                event.preventDefault();
+                var files = Array.prototype.slice.call(input.files);
+                if (!files.length) {
+                    showClientError('Choose at least one document.');
+                    return;
+                }
+                if (files.length > 50) {
+                    showClientError('Upload at most 50 documents at a time.');
+                    return;
+                }
+                begin(files, form, false);
+            });
+        }
+        if (importForm) {
+            importForm.addEventListener('submit', function (event) {
+                event.preventDefault();
+                var url = byId('import-url');
+                if (!url.value.trim()) {
+                    showClientError('Enter a Google Slides URL.');
+                    return;
+                }
+                begin([{ name: 'Google Slides import', size: 0 }], importForm, true);
+            });
+        }
+    }
+
+    function initDetailPolling() {
+        var container = document.querySelector('[data-poll-container]');
+        if (!container) return;
+        var initiallyActive = container.getAttribute('data-current-status') !== 'ready' || container.querySelector('.badge-job-queued, .badge-job-running, .badge-job-retry, .badge-pending, .badge-converting');
+        if (!initiallyActive) return;
+        var heading = container.querySelector('[data-status-heading]');
+        var message = container.querySelector('[data-status-message]');
+        var network = container.querySelector('[data-poll-network]');
+        var deadline = Date.now() + pollingTimeout;
+        var failures = 0;
+        function check() {
+            if (Date.now() > deadline) {
+                if (network) network.textContent = 'Automatic status refresh stopped after 15 minutes. Reload to check the current state.';
+                return;
+            }
+            fetch(container.getAttribute('data-poll-url'), { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' }).then(function (response) {
+                if (!response.ok) throw new Error('HTTP ' + response.status);
+                return response.json();
+            }).then(function (data) {
+                failures = 0;
+                if (network) network.textContent = '';
+                if (heading) heading.textContent = 'Conversion status: ' + data.status;
+                if (message && data.status !== 'ready') message.textContent = data.error || 'The worker is still processing this publication.';
+                var job = activeJob(data.jobs);
+                if (!job && (data.status === 'ready' || data.status === 'error')) {
+                    if (message && data.status === 'ready') message.textContent = data.page_count + ' pages converted.';
+                    window.setTimeout(function () { window.location.reload(); }, 600);
+                    return;
+                }
+                if (job && message) message.textContent = (job.progress_message || data.status) + (job.progress ? ' · ' + job.progress + '%' : '');
+                window.setTimeout(check, pollingInterval);
+            }).catch(function () {
+                failures += 1;
+                if (network) network.textContent = 'Status refresh failed (' + failures + '/5). The worker may still be running.';
+                if (failures >= 5) {
+                    if (network) network.textContent = 'Automatic status refresh stopped after repeated network failures. Reload to check the current state.';
+                    return;
+                }
+                window.setTimeout(check, pollingInterval * failures);
+            });
+        }
+        check();
+    }
+
+    function escapeAttribute(value) {
+        return String(value).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function initEmbedConfigurator() {
+        var form = document.querySelector('[data-embed-config]');
+        if (!form) return;
+        var output = document.querySelector('[data-embed-output]');
+        var preview = document.querySelector('[data-embed-preview]');
+        var previewTimer = null;
+        function values() {
+            var width = Math.max(200, Math.min(4000, Number(byId('embed-width').value) || 800));
+            var height = Math.max(200, Math.min(4000, Number(byId('embed-height').value) || 600));
+            var aspect = byId('embed-aspect').value;
+            if (aspect !== 'custom') {
+                var parts = aspect.split(':').map(Number);
+                height = Math.round(width * parts[1] / parts[0]);
+                byId('embed-height').value = String(height);
+            }
+            var source = form.getAttribute('data-base-url') + '/embed/' + form.getAttribute('data-slug');
+            if (byId('embed-page-enabled').checked) {
+                var start = byId('embed-start-page') ? byId('embed-start-page').value : '1';
+                source += '?page=' + encodeURIComponent(start);
+            }
+            return { width: width, height: height, source: source, responsive: byId('embed-responsive').checked };
+        }
+        function code(config) {
+            var style = config.responsive
+                ? 'border:none;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1);width:100%;max-width:' + config.width + 'px;aspect-ratio:' + config.width + '/' + config.height + ';height:auto;'
+                : 'border:none;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1);';
+            return '<iframe src="' + escapeAttribute(config.source) + '" width="' + config.width + '" height="' + config.height + '" frameborder="0" allowfullscreen title="Interactive flipbook" loading="lazy" style="' + style + '"></iframe>';
+        }
+        function update(withPreview) {
+            var config = values();
+            output.value = code(config);
+            if (withPreview && preview) {
+                window.clearTimeout(previewTimer);
+                previewTimer = window.setTimeout(function () {
+                    preview.textContent = '';
+                    var iframe = document.createElement('iframe');
+                    iframe.title = 'Embed preview';
+                    iframe.src = config.source;
+                    iframe.width = String(config.width);
+                    iframe.height = String(config.height);
+                    iframe.loading = 'lazy';
+                    preview.appendChild(iframe);
+                }, 500);
+            }
+        }
+        form.addEventListener('submit', function (event) { event.preventDefault(); });
+        form.addEventListener('input', function () { update(true); });
+        form.addEventListener('change', function () { update(true); });
+        update(false);
+    }
+
+    function init() {
+        initNavigation();
+        initTabs();
+        initConfirmations();
+        initCopyButtons();
+        initBulkActions();
+        initUploadQueue();
+        initDetailPolling();
+        initEmbedConfigurator();
+    }
+
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+    else init();
+}());

@@ -1,0 +1,54 @@
+{{define "admin_collections"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>{{template "admin_head" .}}</head>
+<body>
+{{template "admin_nav" .}}
+<main class="container container-wide" id="main-content">
+    <div class="page-header"><div><h1>Collections</h1><p class="text-muted">Curate publications without duplicating them. Assign items from the library or publication settings.</p></div></div>
+    {{template "admin_flash" .}}
+    <section class="panel" aria-labelledby="create-collection-heading">
+        <h2 id="create-collection-heading">Create collection</h2>
+        <form method="POST" action="/admin/collections/create" class="form-grid">
+            {{template "admin_csrf" .}}
+            <div class="form-group"><label for="new-collection-name">Name</label><input type="text" id="new-collection-name" name="name" maxlength="200" required></div>
+            <div class="form-group"><label for="new-collection-slug">Slug <span class="text-muted">(optional)</span></label><input type="text" id="new-collection-slug" name="slug" maxlength="200"></div>
+            <div class="form-group"><label for="new-collection-visibility">Visibility</label><select id="new-collection-visibility" name="visibility"><option value="private">Private</option><option value="team">Team</option><option value="unlisted">Unlisted</option><option value="public">Public</option></select></div>
+            <div class="form-group form-span-2"><label for="new-collection-description">Description</label><textarea id="new-collection-description" name="description" rows="2" maxlength="5000"></textarea></div>
+            <input type="hidden" name="cover_flipbook_id" value=""><input type="hidden" name="seo_title" value=""><input type="hidden" name="seo_description" value="">
+            <div class="form-actions"><button type="submit" class="btn btn-primary">Create collection</button></div>
+        </form>
+    </section>
+
+    <div class="collection-list">
+    {{range .Collections}}
+        <details class="panel collection-card">
+            <summary><span><strong>{{.Name}}</strong> <span class="badge">{{.Visibility}}</span></span><span class="text-muted">{{len .FlipbookIDs}} publications · /{{.Slug}}</span></summary>
+            <div class="settings-body">
+                <form method="POST" action="/admin/collections/{{.ID}}/update" class="form-grid">
+                    {{template "admin_csrf" $}}
+                    <div class="form-group"><label for="collection-name-{{.ID}}">Name</label><input type="text" id="collection-name-{{.ID}}" name="name" value="{{.Name}}" maxlength="200" required></div>
+                    <div class="form-group"><label for="collection-slug-{{.ID}}">Slug</label><input type="text" id="collection-slug-{{.ID}}" name="slug" value="{{.Slug}}" maxlength="200" required></div>
+                    <div class="form-group"><label for="collection-visibility-{{.ID}}">Visibility</label><select id="collection-visibility-{{.ID}}" name="visibility">{{$visibility := .Visibility}}<option value="private" {{if eq $visibility "private"}}selected{{end}}>Private</option><option value="team" {{if eq $visibility "team"}}selected{{end}}>Team</option><option value="unlisted" {{if eq $visibility "unlisted"}}selected{{end}}>Unlisted</option><option value="public" {{if eq $visibility "public"}}selected{{end}}>Public</option></select></div>
+                    <div class="form-group"><label for="collection-cover-{{.ID}}">Cover publication ID</label><input type="text" id="collection-cover-{{.ID}}" name="cover_flipbook_id" value="{{.CoverFlipbookID}}" placeholder="Optional publication ID"></div>
+                    <div class="form-group form-span-2"><label for="collection-description-{{.ID}}">Description</label><textarea id="collection-description-{{.ID}}" name="description" rows="3" maxlength="5000">{{.Description}}</textarea></div>
+                    <div class="form-group"><label for="collection-seo-title-{{.ID}}">SEO title</label><input type="text" id="collection-seo-title-{{.ID}}" name="seo_title" value="{{.SEO.Title}}"></div>
+                    <div class="form-group"><label for="collection-seo-description-{{.ID}}">SEO description</label><input type="text" id="collection-seo-description-{{.ID}}" name="seo_description" value="{{.SEO.Description}}"></div>
+                    <label class="checkbox-label form-span-2"><input type="checkbox" name="seo_noindex" {{if .SEO.NoIndex}}checked{{end}}> Request noindex</label>
+                    <div class="form-actions"><button type="submit" class="btn btn-primary">Save collection</button></div>
+                </form>
+                <div class="action-bar collection-actions">
+                    <a class="btn" href="/admin?collection={{.ID}}">Manage publications</a>
+                    <form method="POST" action="/admin/collections/{{.ID}}/delete" data-confirm="Delete this collection? Publications themselves will not be deleted.">{{template "admin_csrf" $}}<button type="submit" class="btn btn-danger">Delete collection</button></form>
+                </div>
+            </div>
+        </details>
+    {{else}}
+        <section class="empty-state panel"><h2>No collections yet</h2><p>Create a collection, then add publications from the library bulk actions.</p></section>
+    {{end}}
+    </div>
+</main>
+{{template "admin_scripts" .}}
+</body>
+</html>
+{{end}}

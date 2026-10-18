@@ -1,0 +1,161 @@
+:root {
+    --engagement-bg: #f4f6fa;
+    --engagement-surface: #ffffff;
+    --engagement-text: #172033;
+    --engagement-muted: #526078;
+    --engagement-border: #c8d0df;
+    --engagement-primary: #2457c5;
+    --engagement-primary-hover: #19459f;
+    --engagement-danger: #a52727;
+    --engagement-success: #176b43;
+    --engagement-error: #9b2525;
+    --engagement-focus: #bd5b00;
+}
+
+.engagement-page {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--engagement-bg);
+    color: var(--engagement-text);
+    font: 1rem/1.55 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.engagement-page .engagement-card {
+    box-sizing: border-box;
+    width: min(100% - 2rem, 38rem);
+    margin: 8vh auto;
+    padding: clamp(1.25rem, 4vw, 2.5rem);
+    border: 1px solid var(--engagement-border);
+    border-radius: 0.75rem;
+    background: var(--engagement-surface);
+    box-shadow: 0 0.75rem 2.5rem rgb(23 32 51 / 10%);
+}
+
+.engagement-page a { color: var(--engagement-primary); }
+.engagement-admin { color: var(--engagement-text); }
+.engagement-section { margin: 1.5rem 0 2rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--engagement-border); }
+.engagement-form { display: grid; gap: 1rem; max-width: 44rem; }
+.engagement-field { display: grid; gap: 0.35rem; }
+.engagement-field label, .engagement-fieldset legend { font-weight: 650; }
+.engagement-field input, .engagement-field select, .engagement-field textarea,
+.engagement-copy-row input {
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 2.75rem;
+    padding: 0.65rem 0.75rem;
+    border: 1px solid #8996ac;
+    border-radius: 0.35rem;
+    background: #fff;
+    color: var(--engagement-text);
+    font: inherit;
+}
+.engagement-field textarea { resize: vertical; }
+.engagement-checkbox { display: flex; align-items: flex-start; gap: 0.65rem; }
+.engagement-checkbox input { flex: 0 0 auto; width: 1.25rem; height: 1.25rem; margin: 0.2rem 0 0; }
+.engagement-fieldset { display: grid; gap: 0.65rem; margin: 0; padding: 1rem; border: 1px solid var(--engagement-border); border-radius: 0.35rem; }
+.engagement-help, .engagement-muted { color: var(--engagement-muted); }
+.engagement-help { margin: 0; font-size: 0.92rem; }
+.engagement-status:not(:empty) { padding: 0.75rem; border-radius: 0.35rem; background: #edf2fb; }
+.engagement-status[data-error="true"] { color: var(--engagement-error); background: #fff0f0; }
+
+.engagement-button {
+    display: inline-flex;
+    box-sizing: border-box;
+    align-items: center;
+    justify-content: center;
+    width: fit-content;
+    min-height: 2.75rem;
+    padding: 0.6rem 1rem;
+    border: 1px solid transparent;
+    border-radius: 0.35rem;
+    font: 650 1rem/1.2 system-ui, sans-serif;
+    text-decoration: none;
+    cursor: pointer;
+}
+.engagement-button-primary { background: var(--engagement-primary); color: #fff; }
+.engagement-button-primary:hover { background: var(--engagement-primary-hover); }
+.engagement-button-secondary { border-color: #8996ac; background: #fff; color: var(--engagement-text); }
+.engagement-button-danger { background: var(--engagement-danger); color: #fff; }
+.engagement-button-small { min-height: 2.25rem; padding: 0.4rem 0.65rem; font-size: 0.9rem; }
+.engagement-button[disabled] { opacity: 0.65; cursor: wait; }
+
+.engagement-page a:focus-visible, .engagement-admin a:focus-visible,
+.engagement-button:focus-visible, .engagement-form input:focus-visible,
+.engagement-form select:focus-visible, .engagement-form textarea:focus-visible,
+.engagement-table-wrap:focus-visible, .engagement-copy-row input:focus-visible {
+    outline: 3px solid var(--engagement-focus);
+    outline-offset: 3px;
+}
+
+.engagement-alert { margin: 1rem 0; padding: 1rem; border-radius: 0.4rem; }
+.engagement-alert-success { border: 1px solid var(--engagement-success); background: #ecf8f1; color: #114a30; }
+.engagement-alert-error { border: 1px solid var(--engagement-error); background: #fff0f0; color: #781c1c; }
+.engagement-error-text { color: var(--engagement-error); font-weight: 650; }
+.engagement-filter-form { display: flex; flex-wrap: wrap; align-items: end; gap: 1rem; }
+.engagement-filter-form .engagement-field { min-width: min(100%, 12rem); }
+.engagement-card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 1rem; }
+.engagement-provider-card { padding: 1rem; border: 1px solid var(--engagement-border); border-radius: 0.5rem; background: var(--engagement-surface); }
+.engagement-copy-row { display: flex; align-items: stretch; gap: 0.5rem; max-width: 44rem; }
+.engagement-copy-row input { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+
+.engagement-table-wrap { max-width: 100%; overflow-x: auto; border: 1px solid var(--engagement-border); border-radius: 0.35rem; background: #fff; }
+.engagement-table { width: 100%; border-collapse: collapse; font-size: 0.94rem; }
+.engagement-table th, .engagement-table td { padding: 0.7rem; border-bottom: 1px solid #dfe4ec; text-align: left; vertical-align: top; }
+.engagement-table th { background: #edf1f7; }
+.engagement-table code { overflow-wrap: anywhere; }
+.engagement-pagination { display: flex; align-items: center; gap: 1rem; margin: 1rem 0; }
+.engagement-pagination a { color: var(--engagement-primary); }
+
+.engagement-gate-backdrop {
+    position: fixed;
+    z-index: 10000;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    overflow-y: auto;
+    padding: 1rem;
+    background: rgb(10 16 28 / 72%);
+    color: var(--engagement-text);
+    font: 1rem/1.55 system-ui, sans-serif;
+}
+.engagement-gate-backdrop[hidden] { display: none !important; }
+.engagement-gate-panel {
+    box-sizing: border-box;
+    width: min(100%, 36rem);
+    max-height: calc(100vh - 2rem);
+    overflow-y: auto;
+    padding: clamp(1.25rem, 4vw, 2rem);
+    border-radius: 0.75rem;
+    background: var(--engagement-surface);
+    box-shadow: 0 1rem 4rem rgb(0 0 0 / 35%);
+}
+body.engagement-gate-open { overflow: hidden; }
+.engagement-dismiss-form { margin-top: 0.75rem; }
+
+.engagement-visually-hidden {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+}
+
+@media (max-width: 640px) {
+    .engagement-page .engagement-card { margin: 1rem auto; }
+    .engagement-filter-form { display: grid; align-items: initial; }
+    .engagement-button { width: 100%; }
+    .engagement-table th, .engagement-table td { padding: 0.55rem; }
+    .engagement-copy-row { flex-direction: column; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .engagement-page *, .engagement-admin *, .engagement-gate-backdrop * {
+        scroll-behavior: auto !important;
+        transition: none !important;
+        animation: none !important;
+    }
+}

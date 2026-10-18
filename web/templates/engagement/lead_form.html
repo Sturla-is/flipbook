@@ -1,0 +1,61 @@
+{{define "engagement_lead_fields"}}
+<form method="post" action="{{.FormAction}}" class="engagement-form" data-engagement-lead>
+    <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+    <input type="hidden" name="return_to" value="{{.ReturnTo}}">
+    <input type="hidden" name="source" value="lead_gate">
+    <div class="engagement-status" data-engagement-status role="status" aria-live="polite">{{.Error}}</div>
+    <div class="engagement-field">
+        <label for="lead-email-{{.Flipbook.ID}}">Email address <span aria-hidden="true">*</span></label>
+        <input id="lead-email-{{.Flipbook.ID}}" name="email" type="email" inputmode="email" autocomplete="email" maxlength="254" required value="{{.Email}}" aria-describedby="lead-consent-help-{{.Flipbook.ID}}">
+    </div>
+    <div class="engagement-field">
+        <label for="lead-name-{{.Flipbook.ID}}">Name <span class="engagement-muted">(optional)</span></label>
+        <input id="lead-name-{{.Flipbook.ID}}" name="name" type="text" autocomplete="name" maxlength="200">
+    </div>
+    <div class="engagement-checkbox">
+        <input id="lead-consent-{{.Flipbook.ID}}" name="consent" type="checkbox" value="true" required aria-describedby="lead-consent-help-{{.Flipbook.ID}}">
+        <label for="lead-consent-{{.Flipbook.ID}}">{{if .Flipbook.LeadGate.ConsentText}}{{.Flipbook.LeadGate.ConsentText}}{{else}}I consent to provide my email address for access and related communication.{{end}}</label>
+    </div>
+    <p id="lead-consent-help-{{.Flipbook.ID}}" class="engagement-help">Your email is used to unlock this publication and can be managed by the publisher. Required fields are marked with an asterisk.</p>
+    <button type="submit" class="engagement-button engagement-button-primary" data-engagement-submit>Unlock access</button>
+</form>
+{{if and .Flipbook.LeadGate.Dismissible (not .Flipbook.LeadGate.Mandatory)}}
+<form method="post" action="{{.DismissAction}}" class="engagement-dismiss-form" data-engagement-dismiss>
+    <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+    <input type="hidden" name="return_to" value="{{.ReturnTo}}">
+    <button type="submit" class="engagement-button engagement-button-secondary">Continue without email</button>
+</form>
+{{end}}
+{{end}}
+
+{{define "engagement_lead_gate"}}
+<section class="engagement-gate-backdrop" data-engagement-gate data-dismissible="{{if and .Flipbook.LeadGate.Dismissible (not .Flipbook.LeadGate.Mandatory)}}true{{else}}false{{end}}" hidden aria-labelledby="lead-gate-title-{{.Flipbook.ID}}" aria-describedby="lead-gate-description-{{.Flipbook.ID}}" role="dialog" aria-modal="true">
+    <div class="engagement-gate-panel" tabindex="-1" data-engagement-gate-panel>
+        <h2 id="lead-gate-title-{{.Flipbook.ID}}">Continue reading {{.Flipbook.Title}}</h2>
+        <p id="lead-gate-description-{{.Flipbook.ID}}">Enter your email to unlock the remaining pages{{if .Flipbook.LeadGate.GateDownloads}} and downloads{{end}}.</p>
+        {{template "engagement_lead_fields" .}}
+    </div>
+</section>
+{{end}}
+
+{{define "engagement_lead_form"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex,nofollow">
+    <title>Unlock {{.Flipbook.Title}}</title>
+    <link rel="stylesheet" href="/static/css/engagement.css">
+</head>
+<body class="engagement-page">
+    <main class="engagement-card">
+        <h1>Unlock {{.Flipbook.Title}}</h1>
+        <p>Enter your email to continue reading{{if .Flipbook.LeadGate.GateDownloads}} and unlock available downloads{{end}}.</p>
+        {{template "engagement_lead_fields" .}}
+        <p><a href="{{.ReturnTo}}">Return to the publication</a></p>
+    </main>
+    <script src="/static/js/engagement.js" defer></script>
+</body>
+</html>
+{{end}}

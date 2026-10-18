@@ -1,0 +1,250 @@
+{{define "admin_integrations"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex,nofollow,noarchive">
+    <title>Integrations - Flipbook</title>
+    <link rel="icon" type="image/svg+xml" href="/static/img/favicon.svg">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/integrations.css">
+    <script defer src="/static/js/integrations.js"></script>
+</head>
+<body>
+    <a class="integration-skip-link" href="#integrations-main">Skip to integrations</a>
+    <nav class="navbar" aria-label="Administration">
+        <a href="/admin" class="logo">Flipbook</a>
+        <div class="nav-links">
+            <a href="/admin">Library</a>
+            <a href="/admin/analytics">Analytics</a>
+            <a href="/admin/leads">Leads</a>
+            <a href="/admin/sales">Sales</a>
+            <a href="/admin/integrations" class="active" aria-current="page">Integrations</a>
+            <a href="/admin/team">Team</a>
+            <a href="/admin/collections">Collections</a>
+            <form method="post" action="/logout" class="integration-logout">
+                <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+                <button type="submit" class="btn btn-sm integration-logout-button">Log out</button>
+            </form>
+        </div>
+    </nav>
+
+    <main id="integrations-main" class="container integrations-page" tabindex="-1">
+        <header class="integrations-header">
+            <p class="integrations-eyebrow">Authoring</p>
+            <h1>Integrations</h1>
+            <p>Connect authoring providers, export documents into stable flipbook revisions, and manage signed event webhooks. Provider access remains unavailable until its app, credentials, and permissions are configured.</p>
+        </header>
+
+        {{if .Notice}}<div class="integration-notice" role="status">{{.Notice}}</div>{{end}}
+        {{if .Warning}}<div class="integration-warning" role="alert">{{.Warning}}</div>{{end}}
+        {{if .Error}}<div class="integration-error" role="alert"><strong>Integration action failed:</strong> {{.Error}}</div>{{end}}
+
+        {{if .WebhookSecret}}
+        <section class="integration-secret" aria-labelledby="webhook-secret-heading">
+            <h2 id="webhook-secret-heading">Webhook signing secret</h2>
+            <p><strong>Copy this secret now.</strong> It is stored encrypted and will not be shown again.</p>
+            <div class="integration-secret-row">
+                <code id="webhook-secret-value">{{.WebhookSecret}}</code>
+                <button type="button" class="btn btn-sm" data-copy-target="webhook-secret-value">Copy secret</button>
+            </div>
+        </section>
+        {{end}}
+
+        <section aria-labelledby="provider-heading">
+            <div class="integration-section-heading">
+                <div>
+                    <h2 id="provider-heading">Authoring providers</h2>
+                    <p>OAuth authorization and explicit verification are reported separately. No live API connectivity is assumed from configuration alone.</p>
+                </div>
+            </div>
+            <div class="integration-grid">
+                {{range .Providers}}
+                <article class="integration-card" id="provider-{{.Info.Name}}" aria-labelledby="provider-title-{{.Info.Name}}">
+                    <header class="integration-card-header">
+                        <div class="integration-provider-mark" aria-hidden="true">{{if eq .Info.Name "canva"}}C{{else}}A{{end}}</div>
+                        <div>
+                            <h3 id="provider-title-{{.Info.Name}}">{{.Info.DisplayName}}</h3>
+                            <p class="integration-status"><span class="integration-status-dot {{if .Connected}}is-connected{{else if .Available}}is-attention{{end}}" aria-hidden="true"></span>{{.StatusLabel}}</p>
+                        </div>
+                    </header>
+
+                    {{if .Connection}}
+                    <dl class="integration-connection-meta">
+                        {{if .Connection.DisplayName}}<div><dt>Connection</dt><dd>{{.Connection.DisplayName}}</dd></div>{{end}}
+                        {{if .LastVerified}}<div><dt>Authorized</dt><dd>{{.LastVerified}}</dd></div>{{end}}
+                        {{if .Connection.LastError}}<div><dt>Last error</dt><dd class="integration-error-text">{{.Connection.LastError}}</dd></div>{{end}}
+                    </dl>
+                    {{end}}
+
+                    {{if not .Info.Configured}}
+                    <div class="integration-configuration" role="note">
+                        <strong>Setup required.</strong> {{.Info.ConfigurationMessage}}
+                    </div>
+                    {{end}}
+                    <p class="integration-approval">{{.Info.ApprovalNote}}</p>
+
+                    <div class="integration-actions">
+                        {{if .Info.Configured}}
+                            {{if .Available}}
+                            <form method="post" action="/admin/integrations/{{.Info.Name}}/verify" class="js-integration-action">
+                                <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+                                <button type="submit" class="btn btn-sm">Verify connection</button>
+                            </form>
+                            <form method="post" action="/admin/integrations/{{.Info.Name}}/disconnect" class="js-integration-action" data-confirm="Disconnect {{.Info.DisplayName}}? Local tokens will be removed.">
+                                <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+                                <button type="submit" class="btn btn-sm btn-danger">Disconnect</button>
+                            </form>
+                            {{else}}
+                            <a class="btn btn-primary btn-sm" href="/admin/integrations/{{.Info.Name}}/connect">{{if .Connection}}Reconnect{{else}}Connect{{end}}</a>
+                            {{end}}
+                        {{else}}
+                        <button type="button" class="btn btn-sm" disabled>Connection unavailable</button>
+                        {{end}}
+                    </div>
+
+                    {{if .Available}}
+                    <details class="integration-tools">
+                        <summary>Export and provider statistics</summary>
+                        <div class="integration-tools-body">
+                            <h4>Export to a flipbook revision</h4>
+                            <p>The first export creates a draft publication. Re-exporting the same external document adds a revision to that same publication and queues conversion.</p>
+                            {{if and $.ExportResult (eq $.ExportResult.Provider .Info.Name)}}
+                            <div class="integration-notice" role="status">Revision {{$.ExportResult.RevisionID}} was saved. <a href="{{$.ExportResult.AdminURL}}">Open the publication</a>.</div>
+                            {{end}}
+                            <form method="post" action="/admin/integrations/{{.Info.Name}}/export" class="integration-form js-export-form" data-provider="{{.Info.Name}}">
+                                <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+                                <div class="integration-field">
+                                    <label for="export-id-{{.Info.Name}}">{{if eq .Info.Name "canva"}}Canva design ID{{else}}Adobe Express document URN{{end}}</label>
+                                    <input id="export-id-{{.Info.Name}}" name="external_id" type="text" required maxlength="512" autocomplete="off" spellcheck="false">
+                                </div>
+                                <div class="integration-field">
+                                    <label for="export-title-{{.Info.Name}}">Flipbook title <span>(optional)</span></label>
+                                    <input id="export-title-{{.Info.Name}}" name="title" type="text" maxlength="200" autocomplete="off">
+                                </div>
+                                {{if eq .Info.Name "adobe_express"}}
+                                <div class="integration-field">
+                                    <label for="export-pages-{{.Info.Name}}">Pages <span>(optional)</span></label>
+                                    <input id="export-pages-{{.Info.Name}}" name="pages" type="text" maxlength="100" aria-describedby="export-pages-help-{{.Info.Name}}" placeholder="1,3-5">
+                                    <p id="export-pages-help-{{.Info.Name}}" class="integration-help">Use comma-separated page numbers or ranges. Leave blank to export the document using provider defaults.</p>
+                                </div>
+                                {{end}}
+                                <button type="submit" class="btn btn-primary">Export and queue conversion</button>
+                            </form>
+                            <div class="integration-async-result js-export-result" role="status" aria-live="polite" hidden></div>
+
+                            {{if .Info.SupportsStatistics}}
+                            <h4>Document statistics and metadata</h4>
+                            <p>Only values returned by the supported provider endpoint are shown; unavailable engagement analytics are not inferred.</p>
+                            <form method="get" action="/admin/integrations/{{.Info.Name}}/statistics" class="integration-form js-statistics-form" data-provider="{{.Info.Name}}">
+                                <div class="integration-field">
+                                    <label for="statistics-id-{{.Info.Name}}">External document ID</label>
+                                    <input id="statistics-id-{{.Info.Name}}" name="external_id" type="text" required maxlength="512" autocomplete="off" spellcheck="false">
+                                </div>
+                                <button type="submit" class="btn">Get provider statistics</button>
+                            </form>
+                            <div class="integration-async-result js-statistics-result" role="status" aria-live="polite" hidden></div>
+                            {{end}}
+                        </div>
+                    </details>
+                    {{end}}
+                </article>
+                {{end}}
+            </div>
+        </section>
+
+        {{if .StatisticsJSON}}
+        <section aria-labelledby="statistics-heading">
+            <h2 id="statistics-heading">Provider statistics and metadata</h2>
+            <pre class="integration-statistics" tabindex="0">{{.StatisticsJSON}}</pre>
+        </section>
+        {{end}}
+
+        <section aria-labelledby="webhook-heading" class="integration-webhooks">
+            <h2 id="webhook-heading">Generic signed webhooks</h2>
+            {{if .CanManageWebhook}}
+            <p>Subscriptions receive an HMAC-SHA256 signature in <code>X-Flipbook-Signature</code>, a timestamp, an event name, and an idempotency key. Delivery and retry status appears below after the worker processes the queue.</p>
+            <details class="integration-tools integration-webhook-create">
+                <summary>Create a webhook subscription</summary>
+                <form method="post" action="/admin/integrations/webhooks" class="integration-form">
+                    <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+                    <div class="integration-field">
+                        <label for="webhook-url">HTTPS endpoint URL</label>
+                        <input id="webhook-url" name="url" type="url" required maxlength="2048" autocomplete="off" placeholder="https://example.com/flipbook-events">
+                        <p class="integration-help">HTTP is accepted only on loopback addresses for local development.</p>
+                    </div>
+                    <div class="integration-field">
+                        <label for="webhook-events">Event types</label>
+                        <input id="webhook-events" name="events" type="text" required aria-describedby="webhook-events-help" value="integration.export.queued">
+                        <p id="webhook-events-help" class="integration-help">Separate events with commas or spaces. Use <code>*</code> for all events or <code>integration.test</code> for test events only.</p>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Create subscription</button>
+                </form>
+            </details>
+
+            <div class="integration-subsection-heading">
+                <h3>Subscriptions</h3>
+                <form method="post" action="/admin/integrations/webhooks/test" class="js-integration-action">
+                    <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+                    <button type="submit" class="btn btn-sm">Queue test event</button>
+                </form>
+            </div>
+            {{if .Webhooks}}
+            <div class="integration-table-wrap">
+                <table class="integration-table">
+                    <caption>Configured webhook subscriptions</caption>
+                    <thead><tr><th scope="col">Endpoint</th><th scope="col">Events</th><th scope="col">Status</th><th scope="col">Action</th></tr></thead>
+                    <tbody>
+                        {{range .Webhooks}}
+                        <tr>
+                            <td class="integration-url-cell">{{.URL}}</td>
+                            <td>{{range .Events}}<code class="integration-event">{{.}}</code>{{end}}</td>
+                            <td>{{if .Enabled}}Enabled{{else}}Disabled{{end}}</td>
+                            <td>
+                                <form method="post" action="/admin/integrations/webhooks/{{.ID}}" class="js-integration-action">
+                                    <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+                                    <input type="hidden" name="enabled" value="{{if .Enabled}}false{{else}}true{{end}}">
+                                    <button type="submit" class="btn btn-sm">{{if .Enabled}}Disable{{else}}Enable{{end}}</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {{end}}
+                    </tbody>
+                </table>
+            </div>
+            {{else}}
+            <p>No webhook subscriptions are configured.</p>
+            {{end}}
+
+            <h3>Recent deliveries</h3>
+            {{if .Deliveries}}
+            <div class="integration-table-wrap">
+                <table class="integration-table">
+                    <caption>Recent webhook delivery attempts and results</caption>
+                    <thead><tr><th scope="col">Event</th><th scope="col">Status</th><th scope="col">Attempts</th><th scope="col">HTTP response</th><th scope="col">Last error</th></tr></thead>
+                    <tbody>
+                        {{range .Deliveries}}
+                        <tr>
+                            <td><code>{{.EventType}}</code></td>
+                            <td>{{.Status}}</td>
+                            <td>{{.Attempts}} of {{.MaxAttempts}}</td>
+                            <td>{{if .ResponseStatus}}{{.ResponseStatus}}{{else}}Not sent{{end}}</td>
+                            <td class="integration-error-text">{{if .LastError}}{{.LastError}}{{else}}None{{end}}</td>
+                        </tr>
+                        {{end}}
+                    </tbody>
+                </table>
+            </div>
+            {{else}}
+            <p>No webhook deliveries have been recorded.</p>
+            {{end}}
+            {{else}}
+            <p>Workspace administrators can create subscriptions, reveal new signing secrets once, enable or disable endpoints, and inspect delivery results.</p>
+            {{end}}
+        </section>
+    </main>
+    <div id="integration-global-status" class="integration-sr-only" role="status" aria-live="polite"></div>
+</body>
+</html>
+{{end}}

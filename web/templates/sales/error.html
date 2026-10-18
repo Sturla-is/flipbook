@@ -1,0 +1,23 @@
+{{define "sales_error"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex,nofollow,noarchive">
+    <title>Checkout unavailable</title>
+    <link rel="stylesheet" href="/static/css/sales.css">
+</head>
+<body>
+<main class="sales-page">
+    <section class="sales-card" aria-labelledby="error-title">
+        <p class="sales-eyebrow">Sales error</p>
+        <h1 id="error-title">We could not complete that request</h1>
+        <div class="sales-notice sales-notice-error" role="alert">{{.Message}}</div>
+        <p class="sales-muted">No card details were shared with this site. Return to the publication and try again.</p>
+        <a class="sales-button" href="/">Return home</a>
+    </section>
+</main>
+</body>
+</html>
+{{end}}

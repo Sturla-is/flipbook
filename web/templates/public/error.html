@@ -1,0 +1,18 @@
+{{define "public_error"}}
+<!DOCTYPE html>
+<html lang="{{.Language}}" dir="{{.Direction}}">
+<head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Publication unavailable</title><meta name="robots" content="noindex,nofollow,noarchive">
+    <link rel="stylesheet" href="/static/css/viewer.css?v=10">
+</head>
+<body class="public-message-page">
+    <main class="public-message-card">
+        <p class="public-status">{{.Status}}</p>
+        <h1>Publication unavailable</h1>
+        <p>{{.Message}}</p>
+        {{if .ViewerURL}}<a class="primary-action" href="{{.ViewerURL}}">Return to publication</a>{{end}}
+    </main>
+</body>
+</html>
+{{end}}
