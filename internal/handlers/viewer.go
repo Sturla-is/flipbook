@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
+	"math"
 	"net/http"
 	"net/url"
 	"os"
@@ -140,16 +141,17 @@ func (h *ViewerHandler) renderAuthorized(w http.ResponseWriter, r *http.Request,
 }
 
 type readerLink struct {
-	ID         string  `json:"id,omitempty"`
-	Type       string  `json:"type"`
-	URL        string  `json:"url,omitempty"`
-	VideoEmbed string  `json:"video_embed,omitempty"`
-	TargetPage int     `json:"target_page,omitempty"`
-	Title      string  `json:"title"`
-	X          float64 `json:"x"`
-	Y          float64 `json:"y"`
-	Width      float64 `json:"width"`
-	Height     float64 `json:"height"`
+	ID         string            `json:"id,omitempty"`
+	Type       string            `json:"type"`
+	URL        string            `json:"url,omitempty"`
+	VideoEmbed string            `json:"video_embed,omitempty"`
+	TargetPage int               `json:"target_page,omitempty"`
+	Title      string            `json:"title"`
+	X          float64           `json:"x"`
+	Y          float64           `json:"y"`
+	Width      float64           `json:"width"`
+	Height     float64           `json:"height"`
+	Style      *models.LinkStyle `json:"style,omitempty"`
 }
 
 type readerPage struct {
@@ -330,14 +332,16 @@ func (h *ViewerHandler) buildViewData(r *http.Request, authorization *publishing
 		pageTexts = h.storage.LoadPageTexts(fb.ID)
 	}
 	customLinks := make(map[int][]readerLink)
+	importedRects := make(map[int][]models.LinkRect)
 	if allowedPages > 0 {
 		linksRequest := request
 		linksRequest.Page = 1
 		if _, err := h.publishing.AuthorizeLinks(r.Context(), fb.WorkspaceID, fb.ID, linksRequest); err == nil {
-			overlays, listErr := h.db.ListLinkOverlays(r.Context(), fb.WorkspaceID, fb.ID, fb.CurrentRevisionID)
+			overlays, listErr := h.db.ListLinkOverlaysForEditor(r.Context(), fb.WorkspaceID, fb.ID, fb.CurrentRevisionID)
 			if listErr != nil {
 				return nil, listErr
 			}
+			importedRects = importedManifestRects(overlays)
 			for _, overlay := range overlays {
 				if overlay == nil || overlay.Page > allowedPages || !overlay.Enabled {
 					continue
@@ -363,6 +367,9 @@ func (h *ViewerHandler) buildViewData(r *http.Request, authorization *publishing
 			page.Spans = manifestPage.Text
 			for _, link := range manifestPage.Links {
 				if converted, ok := makeManifestReaderLink(link, page.WidthPoints, page.HeightPoints); ok {
+					if linkMatchesSourceRect(converted, importedRects[number]) {
+						continue
+					}
 					page.Links = append(page.Links, converted)
 				}
 			}
@@ -645,6 +652,7 @@ func makeCustomReaderLink(link *models.LinkOverlay) (readerLink, bool) {
 	result := readerLink{
 		ID: link.ID, Type: string(link.Type), URL: safeReaderLinkURL(link.URL), TargetPage: link.TargetPage,
 		Title: link.Title, X: link.X, Y: link.Y, Width: link.Width, Height: link.Height,
+		Style: link.Style,
 	}
 	result.VideoEmbed = distribution.VideoEmbedURL(link.URL)
 	if result.Type == "video" && result.VideoEmbed == "" {
@@ -673,6 +681,37 @@ func validReaderLink(link readerLink) bool {
 	default:
 		return false
 	}
+}
+
+// sourceRectTolerance is the normalized-coordinate tolerance used to match a
+// manifest link against a custom overlay imported from it.
+const sourceRectTolerance = 0.005
+
+// importedManifestRects indexes the source rectangles of overlays that were
+// imported from PDF manifest links, keyed by page number.
+func importedManifestRects(overlays []*models.LinkOverlay) map[int][]models.LinkRect {
+	rects := make(map[int][]models.LinkRect)
+	for _, overlay := range overlays {
+		if overlay == nil || overlay.SourceRect == nil || overlay.Page < 1 {
+			continue
+		}
+		rects[overlay.Page] = append(rects[overlay.Page], *overlay.SourceRect)
+	}
+	return rects
+}
+
+// linkMatchesSourceRect reports whether a normalized manifest link rect matches
+// an imported overlay's source rect, so the reader does not render both.
+func linkMatchesSourceRect(link readerLink, rects []models.LinkRect) bool {
+	for _, rect := range rects {
+		if math.Abs(link.X-rect.X) <= sourceRectTolerance &&
+			math.Abs(link.Y-rect.Y) <= sourceRectTolerance &&
+			math.Abs(link.Width-rect.Width) <= sourceRectTolerance &&
+			math.Abs(link.Height-rect.Height) <= sourceRectTolerance {
+			return true
+		}
+	}
+	return false
 }
 
 func safeReaderLinkURL(raw string) string {

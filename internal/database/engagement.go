@@ -45,14 +45,30 @@ func (d *DB) UpdateLinkOverlay(ctx context.Context, link *models.LinkOverlay) er
 	if err := link.Validate(); err != nil {
 		return err
 	}
-	result, err := d.linkOverlays.UpdateOne(ctx, bson.M{
-		"_id": link.ID, "workspace_id": link.WorkspaceID, "flipbook_id": link.FlipbookID,
-	}, bson.M{"$set": bson.M{
+	set := bson.M{
 		"revision_id": link.RevisionID, "page": link.Page, "x": link.X, "y": link.Y,
 		"width": link.Width, "height": link.Height, "type": link.Type, "url": link.URL,
 		"target_page": link.TargetPage, "title": link.Title, "enabled": link.Enabled,
 		"updated_at": time.Now().UTC(),
-	}})
+	}
+	unset := bson.M{}
+	if link.Style != nil {
+		set["style"] = link.Style
+	} else {
+		unset["style"] = ""
+	}
+	if link.SourceRect != nil {
+		set["source_rect"] = link.SourceRect
+	} else {
+		unset["source_rect"] = ""
+	}
+	update := bson.M{"$set": set}
+	if len(unset) > 0 {
+		update["$unset"] = unset
+	}
+	result, err := d.linkOverlays.UpdateOne(ctx, bson.M{
+		"_id": link.ID, "workspace_id": link.WorkspaceID, "flipbook_id": link.FlipbookID,
+	}, update)
 	if err == nil && result.MatchedCount == 0 {
 		return mongo.ErrNoDocuments
 	}

@@ -266,6 +266,29 @@
             return article;
         }
 
+        function applyLinkStyle(element, link) {
+            var style = link && link.style;
+            if (!style || typeof style.color !== 'string') return;
+            var match = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.exec(style.color);
+            if (!match) return;
+            var hex = match[1];
+            if (hex.length === 3) {
+                hex = hex.charAt(0) + hex.charAt(0) + hex.charAt(1) + hex.charAt(1) + hex.charAt(2) + hex.charAt(2);
+            }
+            var red = parseInt(hex.slice(0, 2), 16);
+            var green = parseInt(hex.slice(2, 4), 16);
+            var blue = parseInt(hex.slice(4, 6), 16);
+            var opacity = Number(style.opacity);
+            if (!isFinite(opacity) || opacity < 0 || opacity > 1) opacity = 0.16;
+            element.style.setProperty('--link-fill', 'rgba(' + red + ',' + green + ',' + blue + ',' + opacity + ')');
+            element.style.setProperty('--link-highlight', 'rgba(' + red + ',' + green + ',' + blue + ',' + Math.min(1, opacity + 0.14) + ')');
+            element.style.setProperty('--link-border', style.color);
+            var radius = Number(style.radius);
+            if (isFinite(radius) && radius >= 0 && radius <= 50) {
+                element.style.setProperty('--link-radius', radius + 'px');
+            }
+        }
+
         function buildLinkOverlays(container, page) {
             (page.links || []).forEach(function (link) {
                 var style = 'left:' + (link.x * 100) + '%;top:' + (link.y * 100) + '%;width:' + (link.width * 100) + '%;height:' + (link.height * 100) + '%';
@@ -274,6 +297,7 @@
                     internal.type = 'button';
                     internal.className = 'page-link internal-link';
                     internal.style.cssText = style;
+                    applyLinkStyle(internal, link);
                     internal.setAttribute('aria-label', link.title || (t('page') + ' ' + link.target_page));
                     internal.addEventListener('click', function (event) {
                         event.stopPropagation();
@@ -287,6 +311,7 @@
                     video.type = 'button';
                     video.className = 'page-link video-link';
                     video.style.cssText = style;
+                    applyLinkStyle(video, link);
                     video.setAttribute('aria-label', link.title || t('video'));
                     video.addEventListener('click', function (event) {
                         event.stopPropagation();
@@ -299,6 +324,7 @@
                 var anchor = document.createElement('a');
                 anchor.className = 'page-link external-link';
                 anchor.style.cssText = style;
+                applyLinkStyle(anchor, link);
                 anchor.href = link.url;
                 anchor.target = '_blank';
                 anchor.rel = 'noopener nofollow';

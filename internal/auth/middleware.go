@@ -287,6 +287,20 @@ func (a *Auth) CSRFMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+// OptionalAuth populates the request principal when the request carries valid
+// credentials, but never rejects or redirects anonymous requests. Used on
+// public reader routes so signed-in staff can preview publications.
+func (a *Auth) OptionalAuth(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if _, ok := PrincipalFromContext(r.Context()); !ok {
+			if principal, err := a.principalFromRequest(r); err == nil {
+				r = withPrincipal(r, principal)
+			}
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 func (a *Auth) RequireAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if _, ok := PrincipalFromContext(r.Context()); ok {

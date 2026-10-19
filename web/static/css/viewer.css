@@ -38,9 +38,9 @@ img { max-width: 100%; }
 .is-loaded .page-canvas::after, .load-failed .page-canvas::after { display: none; }
 .load-failed .page-canvas { background: repeating-linear-gradient(135deg, #f1f5f9, #f1f5f9 12px, #e2e8f0 12px, #e2e8f0 24px); }
 .page-overlays, .page-highlights { position: absolute; inset: 0; pointer-events: none; }
-.page-link { position: absolute; z-index: 3; display: block; min-width: 8px; min-height: 8px; margin: 0; padding: 0; border: 1px solid transparent; border-radius: 2px; background: transparent; pointer-events: auto; }
-.page-link:hover, .page-link:focus-visible { border-color: #2563eb; background: rgb(37 99 235 / .16); outline-offset: 1px; }
-.video-link { border-color: rgb(99 102 241 / .5); background: rgb(99 102 241 / .14); }
+.page-link { position: absolute; z-index: 3; display: block; min-width: 8px; min-height: 8px; margin: 0; padding: 0; border: 1px solid transparent; border-radius: var(--link-radius, 2px); background: var(--link-fill, transparent); pointer-events: auto; }
+.page-link:hover, .page-link:focus-visible { border-color: var(--link-border, #2563eb); background: var(--link-highlight, rgb(37 99 235 / .16)); outline-offset: 1px; }
+.video-link { border-color: var(--link-border, rgb(99 102 241 / .5)); background: var(--link-fill, rgb(99 102 241 / .14)); }
 .video-link::after { position: absolute; inset: 50% auto auto 50%; display: grid; width: 30px; height: 30px; place-items: center; border-radius: 50%; background: rgb(15 23 42 / .85); color: #fff; content: "▶"; font-size: .75rem; transform: translate(-50%, -50%); }
 .search-highlight { position: absolute; display: block; border-radius: 2px; background: rgb(250 204 21 / .5); box-shadow: 0 0 0 2px rgb(250 204 21 / .25); }
 .mode-continuous { display: flex; flex-direction: column; align-items: center; gap: 1rem; width: 100%; min-height: 100%; padding: 1rem; }

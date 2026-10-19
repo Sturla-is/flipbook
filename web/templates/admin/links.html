@@ -1,0 +1,69 @@
+{{define "admin_links"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>{{template "admin_head" .}}
+<link rel="stylesheet" href="/static/css/link-editor.css">
+</head>
+<body>
+{{template "admin_nav" .}}
+<main class="container container-wide" id="main-content">
+    <a href="/admin/flipbooks/{{.Flipbook.ID}}" class="back-link">← Back to publication</a>
+    <div class="page-header">
+        <div>
+            <h1>Link hotspots</h1>
+            <p class="text-muted">{{.Flipbook.Title}} · Click a PDF box to import it, drag on the page to draw a new link, or select a box to edit it.</p>
+        </div>
+        <div class="action-bar">
+            <button type="button" class="btn btn-primary" id="add-link" aria-pressed="false">Add link</button>
+        </div>
+    </div>
+    {{template "admin_flash" .}}
+
+    <div class="link-editor-layout">
+        <aside class="link-editor-pages" id="page-strip" aria-label="Pages"></aside>
+
+        <section class="link-editor-stage" aria-label="Page canvas">
+            <div class="page-canvas" id="page-canvas">
+                <img class="page-image" id="page-image" alt="Selected page" draggable="false">
+                <div class="page-overlays" id="overlay-layer"></div>
+                <div class="draw-rect" id="draw-rect" hidden></div>
+            </div>
+            <p class="field-help" id="stage-hint">Select a page on the left. Dashed boxes are links embedded in the PDF; solid boxes are custom hotspots.</p>
+        </section>
+
+        <aside class="panel link-editor-props" aria-labelledby="link-props-heading">
+            <h2 id="link-props-heading">Link settings</h2>
+            <div id="props-empty" class="field-help">No link selected. Click a box on the page or use “Add link” to draw one.</div>
+            <form id="props-form" class="form-grid" hidden>
+                <div class="form-group form-span-2"><label for="link-type">Type</label>
+                    <select id="link-type" name="type">
+                        <option value="external">External URL</option>
+                        <option value="internal">Internal page</option>
+                        <option value="video">Video</option>
+                    </select>
+                </div>
+                <div class="form-group form-span-2" data-field-url><label for="link-url">URL</label><input type="text" id="link-url" name="url" maxlength="4096" placeholder="https://example.com/page"><p class="field-help">Video links accept a watch URL; the reader embeds it automatically.</p></div>
+                <div class="form-group form-span-2" data-field-target hidden><label for="link-target-page">Target page</label><input type="number" id="link-target-page" name="target_page" min="1" max="{{.Flipbook.PageCount}}"></div>
+                <div class="form-group form-span-2"><label for="link-title">Title <span class="text-muted">(accessibility label)</span></label><input type="text" id="link-title" name="title" maxlength="300"></div>
+                <fieldset class="form-group form-span-2"><legend>Highlight style</legend>
+                    <div class="form-group"><label for="link-color">Color</label><input type="text" id="link-color" name="color" placeholder="#2563eb" pattern="^$|#[0-9A-Fa-f]{3}([0-9A-Fa-f]{3})?"><p class="field-help">Leave blank for the default look.</p></div>
+                    <div class="form-group"><label for="link-opacity">Opacity (0–1)</label><input type="number" id="link-opacity" name="opacity" min="0" max="1" step="0.05"></div>
+                    <div class="form-group"><label for="link-radius">Corner radius (px)</label><input type="number" id="link-radius" name="radius" min="0" max="50" step="1"></div>
+                </fieldset>
+                <label class="checkbox-label form-span-2"><input type="checkbox" id="link-enabled" name="enabled" checked> Enabled in the reader</label>
+                <div class="form-actions form-span-2">
+                    <button type="submit" class="btn btn-primary" id="link-save">Save link</button>
+                    <button type="button" class="btn btn-danger" id="link-delete">Delete</button>
+                </div>
+                <p class="field-help form-span-2" id="props-dirty-hint" hidden>Unsaved position changes are stored automatically when you drag or resize a saved link.</p>
+            </form>
+        </aside>
+    </div>
+    {{template "admin_csrf" .}}
+    <script>window.LINK_EDITOR_DATA = {{.DataJSON}};</script>
+</main>
+{{template "admin_scripts" .}}
+<script src="/static/js/link-editor.js" defer></script>
+</body>
+</html>
+{{end}}

@@ -213,6 +213,7 @@
         </form>
         <div class="form-group"><label for="embed-code">Embed code</label><div class="embed-code"><textarea readonly id="embed-code" rows="4" data-embed-output>{{.EmbedCode}}</textarea><button type="button" class="btn" data-copy-target="embed-code">Copy</button></div></div>
         <div class="embed-preview" id="embed-preview" data-embed-preview aria-label="Embed preview"></div>
+        {{if and .CanEdit (eq .Flipbook.Status "ready")}}<div class="form-actions"><a href="/admin/flipbooks/{{.Flipbook.ID}}/links" class="btn">Edit links</a><p class="field-help">Draw, move, and style clickable link hotspots over the pages, or import links embedded in the PDF.</p></div>{{end}}
     </section>
 
     <section class="panel" aria-labelledby="replace-heading">

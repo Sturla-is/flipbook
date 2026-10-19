@@ -349,17 +349,19 @@ func (h *APIHandler) DeleteFlipbookTag(w http.ResponseWriter, r *http.Request) {
 }
 
 type linkRequest struct {
-	RevisionID *string          `json:"revision_id"`
-	Page       *int             `json:"page"`
-	X          *float64         `json:"x"`
-	Y          *float64         `json:"y"`
-	Width      *float64         `json:"width"`
-	Height     *float64         `json:"height"`
-	Type       *models.LinkType `json:"type"`
-	URL        *string          `json:"url"`
-	TargetPage *int             `json:"target_page"`
-	Title      *string          `json:"title"`
-	Enabled    *bool            `json:"enabled"`
+	RevisionID *string           `json:"revision_id"`
+	Page       *int              `json:"page"`
+	X          *float64          `json:"x"`
+	Y          *float64          `json:"y"`
+	Width      *float64          `json:"width"`
+	Height     *float64          `json:"height"`
+	Type       *models.LinkType  `json:"type"`
+	URL        *string           `json:"url"`
+	TargetPage *int              `json:"target_page"`
+	Title      *string           `json:"title"`
+	Style      *models.LinkStyle `json:"style"`
+	SourceRect *models.LinkRect  `json:"source_rect"`
+	Enabled    *bool             `json:"enabled"`
 }
 
 func applyLinkRequest(link *models.LinkOverlay, request linkRequest, create bool) {
@@ -395,6 +397,12 @@ func applyLinkRequest(link *models.LinkOverlay, request linkRequest, create bool
 	}
 	if request.Title != nil {
 		link.Title = *request.Title
+	}
+	if request.Style != nil {
+		link.Style = request.Style
+	}
+	if request.SourceRect != nil {
+		link.SourceRect = request.SourceRect
 	}
 	if request.Enabled != nil {
 		link.Enabled = *request.Enabled

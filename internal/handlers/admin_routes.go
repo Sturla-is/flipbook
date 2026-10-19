@@ -32,6 +32,7 @@ func (h *AdminHandler) RegisterRoutes(r chi.Router) {
 	r.Post("/admin/security/api-keys/{id}/revoke", h.RevokeAPIKey)
 
 	r.Get("/admin/flipbooks/{id}", h.Detail)
+	r.Get("/admin/flipbooks/{id}/links", h.LinkEditor)
 	r.Get("/admin/flipbooks/{id}/status", h.ConversionStatus)
 	r.Post("/admin/flipbooks/{id}/settings", h.Settings)
 	r.Post("/admin/flipbooks/{id}/slug", h.UpdateSlug)
