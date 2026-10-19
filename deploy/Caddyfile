@@ -4,7 +4,7 @@
 # Flipbook backend runs on :8090, LastSaaS backend runs on :8091.
 #
 # Routing:
-#   /api/flipbooks*, /api/saas/*  → Flipbook backend (:8090)
+#   /api/flipbooks*, /api/saas/*, /api/public/* → Flipbook backend (:8090)
 #   all other /api/*              → LastSaaS backend (:8091)
 #   /health                       → LastSaaS backend (:8091)
 #   Everything else               → Flipbook backend (:8090)
@@ -17,7 +17,7 @@
 
 :8080 {
 	# Flipbook-owned API routes
-	@flipbookapi path_regexp ^/api/(flipbooks|saas)(/.*)?$
+	@flipbookapi path_regexp ^/api/(flipbooks|saas|public)(/.*)?$
 	handle @flipbookapi {
 		request_body {
 			max_size 500MB
