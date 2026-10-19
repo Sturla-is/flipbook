@@ -534,6 +534,9 @@ func parseTemplates() *template.Template {
 	patterns := []string{
 		"web/templates/*.html",
 		"web/templates/admin/*.html",
+		"web/templates/public/*.html",
+		"web/templates/sales/*.html",
+		"web/templates/engagement/*.html",
 	}
 	for _, pattern := range patterns {
 		matches, err := filepath.Glob(pattern)

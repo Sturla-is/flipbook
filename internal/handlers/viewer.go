@@ -81,10 +81,10 @@ func (h *ViewerHandler) serve(w http.ResponseWriter, r *http.Request, embedded b
 	// Billing check for tenant-owned flipbooks (legacy admin flipbooks always served)
 	if fb.TenantID != "" && h.billing != nil {
 		if !h.billing.TenantCanServe(r.Context(), fb.TenantID) {
-			h.tmpl.ExecuteTemplate(w, "unavailable", map[string]interface{}{
+			_ = readerRender(h.tmpl, w, "unavailable", map[string]interface{}{
 				"Flipbook": fb,
 				"BaseURL":  h.baseURL,
-			})
+			}, http.StatusServiceUnavailable)
 			return
 		}
 	}

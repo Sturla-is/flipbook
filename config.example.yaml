@@ -15,7 +15,7 @@ mongo_db: "flipbook"
 # FLIPBOOK_LIBREOFFICE_BIN, FLIPBOOK_MAX_UPLOAD_SIZE (bytes),
 # FLIPBOOK_CONVERSION_DPI, FLIPBOOK_THUMBNAIL_DPI.
 libreoffice_bin: "" # Auto-detected when blank.
-max_upload_size: 104857600
+max_upload_size: 524288000
 conversion_dpi: 300
 thumbnail_dpi: 72
 
@@ -167,3 +167,9 @@ storage:
     path_style: false            # FLIPBOOK_STORAGE_S3_PATH_STYLE
     prefix: ""                   # FLIPBOOK_STORAGE_S3_PREFIX
     cdn_base_url: ""             # FLIPBOOK_STORAGE_S3_CDN_BASE_URL
+
+saas:
+  enabled: false                 # FLIPBOOK_SAAS_ENABLED; run in multi-tenant SaaS mode.
+  jwt_access_secret: ""          # FLIPBOOK_JWT_ACCESS_SECRET; REQUIRED when saas.enabled=true (server refuses to start without it).
+  grace_period_days: 7           # FLIPBOOK_GRACE_PERIOD_DAYS; billing grace period before tenant content is blocked.
+  frontend_dir: ""               # FLIPBOOK_FRONTEND_DIR; path to the SaaS SPA build output (frontend-overlay/dist).

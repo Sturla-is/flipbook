@@ -74,7 +74,7 @@ type toolResult struct {
 }
 
 type contentBlock struct {
-	Type string `json:"text"`
+	Type string `json:"type"`
 	Text string `json:"text"`
 }
 
