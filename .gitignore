@@ -31,3 +31,6 @@ frontend-overlay/node_modules/
 
 # One-off bootstrap script — contains live DB credentials, never commit
 scripts/bootstrap.js
+
+# Local Docker runtime env (generated secrets)
+.env.docker
