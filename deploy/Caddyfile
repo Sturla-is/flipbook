@@ -4,23 +4,41 @@
 # Flipbook backend runs on :8090, LastSaaS backend runs on :8091.
 #
 # Routing:
-#   /api/auth/*, /api/users/*, /api/tenants/*, /api/billing/*,
-#   /api/plans/*, /api/messages/*, /api/admin/*, /api/config/*,
-#   /api/branding/*, /api/bundles/*, /api/stripe/*, /health
-#       → LastSaaS backend (:8091)
-#   Everything else → Flipbook backend (:8090)
+#   /api/flipbooks*, /api/saas/*  → Flipbook backend (:8090)
+#   all other /api/*              → LastSaaS backend (:8091)
+#   /health                       → LastSaaS backend (:8091)
+#   Everything else               → Flipbook backend (:8090)
+#
+# NOTE: flipbook-owned API prefixes are the exception list; LastSaaS is the
+# default for /api/* so newly added LastSaaS endpoints keep working without
+# touching this file. If flipbook ever mounts new API prefixes (e.g.
+# /api/public or /api/webhooks from internal/handlers), add them to the
+# flipbook matcher below.
 
 :8080 {
-	# LastSaaS API routes — use path_regexp to match both /api/X and /api/X/*
-	@lastsaas path_regexp ^/api/(auth|users|tenants|billing|plans|messages|admin|config|branding|bundles|stripe|webhooks|bootstrap)(/.*)?$
-	handle @lastsaas {
+	# Flipbook-owned API routes
+	@flipbookapi path_regexp ^/api/(flipbooks|saas)(/.*)?$
+	handle @flipbookapi {
+		request_body {
+			max_size 500MB
+		}
+		reverse_proxy localhost:8090 {
+			transport http {
+				read_timeout 10m
+				write_timeout 10m
+			}
+		}
+	}
+
+	# All other API routes belong to LastSaaS
+	handle /api/* {
 		reverse_proxy localhost:8091
 	}
 	handle /health {
 		reverse_proxy localhost:8091
 	}
 
-	# Everything else goes to flipbook backend
+	# Everything else goes to flipbook backend (viewer, embed, SPA, static)
 	handle {
 		request_body {
 			max_size 500MB
