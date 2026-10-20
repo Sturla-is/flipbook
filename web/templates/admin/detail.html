@@ -12,6 +12,7 @@
             <div class="badge-row"><span class="badge badge-{{.Flipbook.Status}}">{{.Flipbook.Status}}</span><span class="badge badge-state-{{.Flipbook.PublicationState}}">{{.Flipbook.PublicationState}}</span><span class="badge">{{.Flipbook.Visibility}}</span>{{if .Flipbook.ArchivedAt}}<span class="badge badge-archived">Archived</span>{{end}}{{if .RequiresReview}}<span class="badge badge-review-{{.Flipbook.ReviewState}}">Review: {{.Flipbook.ReviewState}}</span>{{end}}</div>
         </div>
         <div class="action-bar">
+            {{if and .CanEdit (eq .Flipbook.Status "ready")}}<a href="/admin/flipbooks/{{.Flipbook.ID}}/links" class="btn btn-secondary"><svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5V15a1.5 1.5 0 001.5 1.5h9A1.5 1.5 0 0016 15v-2.5M13.5 7.5l-2-2L5.8 11.2 5 15l3.8-.8 4.7-4.7z"/></svg>Edit links</a>{{end}}
             {{if .CanEdit}}<form method="POST" action="/admin/flipbooks/{{.Flipbook.ID}}/duplicate">{{template "admin_csrf" .}}<button type="submit" class="btn">Duplicate as draft</button></form>{{end}}
             {{if eq .Flipbook.Status "ready"}}<a href="{{.ViewerURL}}" target="_blank" rel="noopener" class="btn btn-primary">{{if .Flipbook.IsPublic}}View publication{{else}}Preview publication{{end}}</a>{{end}}
         </div>
@@ -61,6 +62,21 @@
             {{else if eq $review "approved"}}<p class="flash flash-success">Approved for publication{{if .Flipbook.ReviewedAt}} on {{.Flipbook.ReviewedAt.Format "2006-01-02 15:04"}}{{end}}.</p>
             {{else if eq $review "rejected"}}<p class="flash flash-error">Review rejected.{{if .Flipbook.ReviewNote}} {{.Flipbook.ReviewNote}}{{end}}</p>{{end}}
         {{end}}
+    </section>
+
+    <section class="panel" aria-labelledby="embed-config-heading">
+        <h2 id="embed-config-heading">Embed code configurator</h2>
+        <p class="field-help">Size and aspect options change only the generated iframe. Save reader behavior under Publication settings → Embed behavior below.</p>
+        <form id="embed-configurator" data-embed-config data-base-url="{{.BaseURL}}" data-slug="{{.Flipbook.Slug}}" class="form-grid">
+            <div class="form-group"><label for="embed-width">Width (pixels)</label><input type="number" id="embed-width" value="800" min="200" max="4000"></div>
+            <div class="form-group"><label for="embed-height">Height (pixels)</label><input type="number" id="embed-height" value="600" min="200" max="4000"></div>
+            <div class="form-group"><label for="embed-aspect">Aspect ratio</label><select id="embed-aspect"><option value="custom">Custom</option><option value="16:9">16:9</option><option value="4:3">4:3</option><option value="3:2">3:2</option></select></div>
+            <label class="checkbox-label"><input type="checkbox" id="embed-responsive" checked> Responsive width</label>
+            <label class="checkbox-label"><input type="checkbox" id="embed-page-enabled"> Include start page ({{.Flipbook.Embed.StartPage}})</label>
+        </form>
+        <div class="form-group"><label for="embed-code">Embed code</label><div class="embed-code"><textarea readonly id="embed-code" rows="4" data-embed-output>{{.EmbedCode}}</textarea><button type="button" class="btn" data-copy-target="embed-code">Copy</button></div></div>
+        <div class="embed-preview" id="embed-preview" data-embed-preview aria-label="Embed preview"></div>
+        {{if and .CanEdit (eq .Flipbook.Status "ready")}}<div class="form-actions"><a href="/admin/flipbooks/{{.Flipbook.ID}}/links" class="btn">Edit links</a><p class="field-help">Draw, move, and style clickable link hotspots over the pages, or import links embedded in the PDF.</p></div>{{end}}
     </section>
 
     <section class="panel" aria-labelledby="slug-heading">
@@ -200,21 +216,6 @@
         </details>
         <div class="form-actions settings-save-bottom"><button type="submit" class="btn btn-primary">Save all settings</button></div>
     </form>
-
-    <section class="panel" aria-labelledby="embed-config-heading">
-        <h2 id="embed-config-heading">Embed code configurator</h2>
-        <p class="field-help">Size and aspect options change only the generated iframe. Save reader behavior in Embed behavior above.</p>
-        <form id="embed-configurator" data-embed-config data-base-url="{{.BaseURL}}" data-slug="{{.Flipbook.Slug}}" class="form-grid">
-            <div class="form-group"><label for="embed-width">Width (pixels)</label><input type="number" id="embed-width" value="800" min="200" max="4000"></div>
-            <div class="form-group"><label for="embed-height">Height (pixels)</label><input type="number" id="embed-height" value="600" min="200" max="4000"></div>
-            <div class="form-group"><label for="embed-aspect">Aspect ratio</label><select id="embed-aspect"><option value="custom">Custom</option><option value="16:9">16:9</option><option value="4:3">4:3</option><option value="3:2">3:2</option></select></div>
-            <label class="checkbox-label"><input type="checkbox" id="embed-responsive" checked> Responsive width</label>
-            <label class="checkbox-label"><input type="checkbox" id="embed-page-enabled"> Include start page ({{.Flipbook.Embed.StartPage}})</label>
-        </form>
-        <div class="form-group"><label for="embed-code">Embed code</label><div class="embed-code"><textarea readonly id="embed-code" rows="4" data-embed-output>{{.EmbedCode}}</textarea><button type="button" class="btn" data-copy-target="embed-code">Copy</button></div></div>
-        <div class="embed-preview" id="embed-preview" data-embed-preview aria-label="Embed preview"></div>
-        {{if and .CanEdit (eq .Flipbook.Status "ready")}}<div class="form-actions"><a href="/admin/flipbooks/{{.Flipbook.ID}}/links" class="btn">Edit links</a><p class="field-help">Draw, move, and style clickable link hotspots over the pages, or import links embedded in the PDF.</p></div>{{end}}
-    </section>
 
     <section class="panel" aria-labelledby="replace-heading">
         <h2 id="replace-heading">Replace source document</h2>

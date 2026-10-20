@@ -6,64 +6,157 @@
 </head>
 <body>
 {{template "admin_nav" .}}
-<main class="container container-wide" id="main-content">
-    <a href="/admin/flipbooks/{{.Flipbook.ID}}" class="back-link">← Back to publication</a>
+<main class="container container-wide link-editor-page" id="main-content">
+    <a href="/admin/flipbooks/{{.Flipbook.ID}}" class="back-link">Back to publication</a>
     <div class="page-header">
         <div>
             <h1>Link hotspots</h1>
-            <p class="text-muted">{{.Flipbook.Title}} · Click a PDF box to import it, drag on the page to draw a new link, or select a box to edit it.</p>
+            <p class="text-muted"><span class="edition-title">{{.Flipbook.Title}}</span> · Draw rectangles over any page to create clickable links, or import the links embedded in your PDF.</p>
         </div>
         <div class="action-bar">
-            <button type="button" class="btn btn-primary" id="add-link" aria-pressed="false">Add link</button>
+            <a href="/v/{{.Flipbook.Slug}}" target="_blank" rel="noopener" class="btn">Preview reader</a>
+            <a href="/admin/flipbooks/{{.Flipbook.ID}}" class="btn btn-primary">Done</a>
         </div>
     </div>
-    {{template "admin_flash" .}}
+
+    <div class="editor-toolbar" aria-label="Editor tools">
+        <div class="toolbar-group">
+            <button type="button" class="btn btn-primary" id="add-link" aria-pressed="false" title="Draw a new hotspot (D)">
+                <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="10" r="2.6"/><path d="M2.6 10h4.3M13.1 10h4.3M10 2.6v4.3M10 13.1v4.3"/></svg>
+                Draw hotspot
+            </button>
+            <button type="button" class="btn" id="import-all" title="Turn every dashed PDF box on this page into an editable hotspot">
+                <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3v9m0 0l-3.4-3.4M10 12l3.4-3.4M3.5 15.5v1a1 1 0 001 1h11a1 1 0 001-1v-1"/></svg>
+                Import PDF links <span class="count-pill" id="pdf-count" hidden>0</span>
+            </button>
+        </div>
+        <div class="toolbar-group toolbar-group-right">
+            <span class="page-stats" id="page-stats"></span>
+            <div class="page-stepper">
+                <button type="button" class="btn btn-sm stepper-btn" id="prev-page" aria-label="Previous page">
+                    <svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.5 4.5L7 10l5.5 5.5"/></svg>
+                </button>
+                <span class="page-indicator" id="page-indicator" role="status">Page 1 / {{.Flipbook.PageCount}}</span>
+                <button type="button" class="btn btn-sm stepper-btn" id="next-page" aria-label="Next page">
+                    <svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.5 4.5L13 10l-5.5 5.5"/></svg>
+                </button>
+            </div>
+        </div>
+    </div>
 
     <div class="link-editor-layout">
         <aside class="link-editor-pages" id="page-strip" aria-label="Pages"></aside>
 
         <section class="link-editor-stage" aria-label="Page canvas">
-            <div class="page-canvas" id="page-canvas">
-                <img class="page-image" id="page-image" alt="Selected page" draggable="false">
-                <div class="page-overlays" id="overlay-layer"></div>
-                <div class="draw-rect" id="draw-rect" hidden></div>
+            <div class="page-frame">
+                <div class="page-canvas" id="page-canvas">
+                    <img class="page-image" id="page-image" alt="Selected page" draggable="false">
+                    <div class="page-overlays" id="overlay-layer"></div>
+                    <div class="draw-rect" id="draw-rect" hidden></div>
+                    <div class="snap-guide snap-guide-v" id="snap-v" hidden aria-hidden="true"></div>
+                    <div class="snap-guide snap-guide-h" id="snap-h" hidden aria-hidden="true"></div>
+                    <div class="size-readout" id="size-readout" hidden></div>
+                    <div class="stage-empty" id="stage-empty" hidden>
+                        <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3H5a2 2 0 00-2 2v5M14 3h5a2 2 0 012 2v5M10 21H5a2 2 0 01-2-2v-5M14 21h5a2 2 0 002-2v-5"/></svg>
+                        <strong>This page has no links yet</strong>
+                        <span>Press <kbd>D</kbd> or use <em>Draw hotspot</em>, then drag a rectangle over the page.</span>
+                    </div>
+                </div>
             </div>
-            <p class="field-help" id="stage-hint">Select a page on the left. Dashed boxes are links embedded in the PDF; solid boxes are custom hotspots.</p>
+            <p class="field-help stage-hint" id="stage-hint"></p>
+            <p class="kbd-hints" aria-hidden="true"><kbd>D</kbd> draw &nbsp; <kbd>Esc</kbd> cancel &nbsp; <kbd>←↑↓→</kbd> nudge &nbsp; <kbd>Del</kbd> delete</p>
         </section>
 
         <aside class="panel link-editor-props" aria-labelledby="link-props-heading">
-            <h2 id="link-props-heading">Link settings</h2>
-            <div id="props-empty" class="field-help">No link selected. Click a box on the page or use “Add link” to draw one.</div>
+            <div class="props-header">
+                <h2 id="link-props-heading">Link settings</h2>
+                <button type="button" class="props-close" id="props-close" aria-label="Close settings panel" hidden>
+                    <svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15"/></svg>
+                </button>
+            </div>
+            <div id="props-empty" class="props-empty">
+                <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 11a2.5 2.5 0 104 0 2.5 2.5 0 00-4 0zM4 11a2.5 2.5 0 104 0 2.5 2.5 0 00-4 0zM14 5.5a2.5 2.5 0 104 0 2.5 2.5 0 00-4 0zM4 5.5a2.5 2.5 0 104 0 2.5 2.5 0 00-4 0zM9 19a2.5 2.5 0 104 0 2.5 2.5 0 00-4 0z"/></svg>
+                <p>Nothing selected yet. Click a box on the page, or draw a new hotspot to set its link.</p>
+                <p class="text-muted">Dashed amber boxes are links already embedded in the PDF — click one to import it.</p>
+            </div>
             <form id="props-form" class="form-grid" hidden>
-                <div class="form-group form-span-2"><label for="link-type">Type</label>
-                    <select id="link-type" name="type">
-                        <option value="external">External URL</option>
-                        <option value="internal">Internal page</option>
-                        <option value="video">Video</option>
-                    </select>
-                </div>
-                <div class="form-group form-span-2" data-field-url><label for="link-url">URL</label><input type="text" id="link-url" name="url" maxlength="4096" placeholder="https://example.com/page"><p class="field-help">Video links accept a watch URL; the reader embeds it automatically.</p></div>
-                <div class="form-group form-span-2" data-field-target hidden><label for="link-target-page">Target page</label><input type="number" id="link-target-page" name="target_page" min="1" max="{{.Flipbook.PageCount}}"></div>
-                <div class="form-group form-span-2"><label for="link-title">Title <span class="text-muted">(accessibility label)</span></label><input type="text" id="link-title" name="title" maxlength="300"></div>
-                <fieldset class="form-group form-span-2"><legend>Highlight style</legend>
-                    <div class="form-group"><label for="link-color">Color</label><input type="text" id="link-color" name="color" placeholder="#2563eb" pattern="^$|#[0-9A-Fa-f]{3}([0-9A-Fa-f]{3})?"><p class="field-help">Leave blank for the default look.</p></div>
-                    <div class="form-group"><label for="link-opacity">Opacity (0–1)</label><input type="number" id="link-opacity" name="opacity" min="0" max="1" step="0.05"></div>
-                    <div class="form-group"><label for="link-radius">Corner radius (px)</label><input type="number" id="link-radius" name="radius" min="0" max="50" step="1"></div>
+                <fieldset class="form-group form-span-2 type-segment" role="radiogroup" aria-label="Link type">
+                    <legend>Type</legend>
+                    <div class="segmented">
+                        <label><input type="radio" name="link-type" value="external" checked><span><svg viewBox="0 0 20 20" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3h5v5M17 3l-8.5 8.5M15.5 12.5V15a2 2 0 01-2 2H5a2 2 0 01-2-2V6.5a2 2 0 012-2h2.5"/></svg>Web</span></label>
+                        <label><input type="radio" name="link-type" value="internal"><span><svg viewBox="0 0 20 20" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3.5H5.5A1.5 1.5 0 004 5v10.5A1.5 1.5 0 005.5 17H16a1.5 1.5 0 001.5-1.5V13M6 6l4 4-4 4M11 9h3.5"/></svg>Page</span></label>
+                        <label><input type="radio" name="link-type" value="video"><span><svg viewBox="0 0 20 20" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="4.5" width="11.5" height="11" rx="2"/><path d="M14 9l3.5-2.5v7L14 11"/></svg>Video</span></label>
+                    </div>
                 </fieldset>
-                <label class="checkbox-label form-span-2"><input type="checkbox" id="link-enabled" name="enabled" checked> Enabled in the reader</label>
-                <div class="form-actions form-span-2">
-                    <button type="submit" class="btn btn-primary" id="link-save">Save link</button>
-                    <button type="button" class="btn btn-danger" id="link-delete">Delete</button>
+                <div class="form-group form-span-2" data-field-url>
+                    <label for="link-url">URL</label>
+                    <div class="input-with-action">
+                        <input type="url" id="link-url" name="url" maxlength="4096" placeholder="https://example.com/page">
+                        <button type="button" class="btn btn-sm" id="link-open" title="Open this URL in a new tab" disabled>
+                            <svg viewBox="0 0 20 20" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3h5v5M17 3l-8.5 8.5M15.5 12.5V15a2 2 0 01-2 2H5a2 2 0 01-2-2V6.5a2 2 0 012-2h2.5"/></svg>
+                            Open
+                        </button>
+                    </div>
+                    <p class="field-help">Video links accept a watch URL; the reader embeds it automatically.</p>
                 </div>
-                <p class="field-help form-span-2" id="props-dirty-hint" hidden>Unsaved position changes are stored automatically when you drag or resize a saved link.</p>
+                <div class="form-group form-span-2" data-field-target hidden>
+                    <label for="link-target-page">Jump to page</label>
+                    <input type="number" id="link-target-page" name="target_page" min="1" max="{{.Flipbook.PageCount}}" placeholder="Page number">
+                </div>
+                <div class="form-group form-span-2">
+                    <label for="link-title">Title <span class="text-muted">(accessibility label)</span></label>
+                    <input type="text" id="link-title" name="title" maxlength="300" placeholder="Read more about…">
+                </div>
+                <fieldset class="form-group form-span-2">
+                    <legend>Position &amp; size <span class="text-muted">(percent of page)</span></legend>
+                    <div class="rect-grid">
+                        <div><label for="link-x">X</label><input type="number" id="link-x" min="0" max="99" step="0.1"></div>
+                        <div><label for="link-y">Y</label><input type="number" id="link-y" min="0" max="99" step="0.1"></div>
+                        <div><label for="link-w">W</label><input type="number" id="link-w" min="1" max="100" step="0.1"></div>
+                        <div><label for="link-h">H</label><input type="number" id="link-h" min="1" max="100" step="0.1"></div>
+                    </div>
+                </fieldset>
+                <fieldset class="form-group form-span-2">
+                    <legend>Highlight style</legend>
+                    <div class="swatch-row" id="color-swatches" aria-label="Preset highlight colors">
+                        <button type="button" class="swatch" data-color="#C63E2B" style="--swatch:#C63E2B" aria-label="Red highlight"></button>
+                        <button type="button" class="swatch" data-color="#B45309" style="--swatch:#B45309" aria-label="Amber highlight"></button>
+                        <button type="button" class="swatch" data-color="#1E7A46" style="--swatch:#1E7A46" aria-label="Green highlight"></button>
+                        <button type="button" class="swatch" data-color="#27548C" style="--swatch:#27548C" aria-label="Blue highlight"></button>
+                        <button type="button" class="swatch" data-color="#5B21B6" style="--swatch:#5B21B6" aria-label="Violet highlight"></button>
+                        <button type="button" class="swatch" data-color="#211D18" style="--swatch:#211D18" aria-label="Ink highlight"></button>
+                        <label class="swatch swatch-custom" title="Custom color">
+                            <input type="text" id="link-color" name="color" placeholder="#C63E2B" pattern="^$|#[0-9A-Fa-f]{3}([0-9A-Fa-f]{3})?" aria-label="Custom highlight color">
+                        </label>
+                    </div>
+                    <label class="range-label" for="link-opacity">Opacity <output id="opacity-value" for="link-opacity">0.18</output></label>
+                    <input type="range" id="link-opacity" name="opacity" min="0.05" max="0.6" step="0.01" value="0.18">
+                    <label class="range-label" for="link-radius">Corner radius <output id="radius-value" for="link-radius">0px</output></label>
+                    <input type="range" id="link-radius" name="radius" min="0" max="24" step="1" value="0">
+                </fieldset>
+                <label class="switch-label form-span-2"><input type="checkbox" id="link-enabled" name="enabled" checked><span class="switch" aria-hidden="true"></span> Enabled in the reader</label>
+                <div class="form-actions form-span-2 props-actions">
+                    <button type="submit" class="btn btn-primary" id="link-save">Save link</button>
+                    <button type="button" class="btn" id="link-duplicate" title="Duplicate this hotspot">
+                        <svg viewBox="0 0 20 20" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6.5" y="6.5" width="10" height="10" rx="2"/><path d="M13.5 6.5V5a2 2 0 00-2-2H5a2 2 0 00-2 2v6.5a2 2 0 002 2h1.5"/></svg>
+                        Duplicate
+                    </button>
+                    <button type="button" class="btn btn-danger" id="link-delete">
+                        <svg viewBox="0 0 20 20" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 5.5h13M8 5.5V4a1 1 0 011-1h2a1 1 0 011 1v1.5M5.5 5.5l.8 10a1.5 1.5 0 001.5 1.4h4.4a1.5 1.5 0 001.5-1.4l.8-10M8.5 8.8v4.4M11.5 8.8v4.4"/></svg>
+                        Delete
+                    </button>
+                </div>
+                <p class="field-help form-span-2" id="props-dirty-hint" hidden>Position changes save automatically when you drop a box.</p>
             </form>
         </aside>
     </div>
+
+    <div class="toast-stack" id="toasts" aria-live="polite" aria-atomic="false"></div>
     {{template "admin_csrf" .}}
     <script>window.LINK_EDITOR_DATA = {{.DataJSON}};</script>
 </main>
 {{template "admin_scripts" .}}
-<script src="/static/js/link-editor.js" defer></script>
+<script src="/static/js/link-editor.js?v=2" defer></script>
 </body>
 </html>
 {{end}}

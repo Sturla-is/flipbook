@@ -6,7 +6,7 @@ primary_region = "iad"
 
 [env]
   # Flipbook
-  FLIPBOOK_BASE_URL = "https://flipbook.metavert.io"
+  FLIPBOOK_BASE_URL = "https://flipbook.dev.nextdigital.is"
   FLIPBOOK_DATA_DIR = "/data"
   FLIPBOOK_MONGO_DB = "flipbook"
   FLIPBOOK_SAAS_ENABLED = "true"
@@ -18,7 +18,7 @@ primary_region = "iad"
   DATABASE_NAME = "flipbook"
   FRONTEND_STATIC_DIR = "/dev/null"
   SERVER_PORT = "8091"
-  FRONTEND_URL = "https://flipbook.metavert.io"
+  FRONTEND_URL = "https://flipbook.dev.nextdigital.is"
   APP_NAME = "Flipbook"
 
 [http_service]

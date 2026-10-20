@@ -6,6 +6,7 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -19,10 +20,13 @@ import (
 	"github.com/metavert-io/flipbook/internal/config"
 	"github.com/metavert-io/flipbook/internal/converter"
 	"github.com/metavert-io/flipbook/internal/database"
+	"github.com/metavert-io/flipbook/internal/engagement"
 	"github.com/metavert-io/flipbook/internal/handlers"
+	"github.com/metavert-io/flipbook/internal/integrations"
 	"github.com/metavert-io/flipbook/internal/mcp"
 	"github.com/metavert-io/flipbook/internal/publishing"
 	"github.com/metavert-io/flipbook/internal/saas"
+	"github.com/metavert-io/flipbook/internal/sales"
 	"github.com/metavert-io/flipbook/internal/storage"
 	"github.com/metavert-io/flipbook/internal/worker"
 	"golang.org/x/crypto/bcrypt"
@@ -250,6 +254,50 @@ func runServer() {
 	apiH := handlers.NewAPIHandler(db, store, w, cfg.BaseURL, cfg.MaxUploadSize)
 	publicH := handlers.NewPublicHandler(db, store, tmpl, cfg.BaseURL, pubService)
 
+	// Feature services powering the admin analytics, leads, sales, and
+	// integrations sections plus the public sales checkout flow.
+	analyticsH := handlers.NewAnalyticsHandler(db, pubService, tmpl, cfg)
+
+	engagementSvc, err := engagement.NewWithConfig(db, cfg, pubService)
+	if err != nil {
+		log.Fatalf("Engagement service: %v", err)
+	}
+	engagementH := handlers.NewEngagementHandler(engagementSvc, tmpl)
+
+	salesSvc, err := sales.NewWithConfig(db, cfg)
+	if err != nil {
+		log.Fatalf("Sales service: %v", err)
+	}
+	salesH := handlers.NewSalesHandler(salesSvc, tmpl, cfg.BaseURL)
+
+	integrationsSvc, err := integrations.NewService(db, store, w, integrations.OptionsFromConfig(cfg))
+	if err != nil {
+		log.Fatalf("Integrations service: %v", err)
+	}
+	integrationsH := handlers.NewIntegrationsHandler(integrationsSvc, tmpl)
+
+	// Reader checkout: signed-in users with an email address go straight to
+	// Stripe; anonymous readers first land on the checkout page that collects
+	// their email.
+	publicH.SetCheckoutProvider(handlers.PublicCheckoutFunc(func(ctx context.Context, input handlers.PublicCheckoutInput) (string, error) {
+		email := input.Email
+		if email == "" {
+			if principal, ok := auth.PrincipalFromContext(ctx); ok && principal.User != nil {
+				email = principal.User.Email
+			}
+		}
+		if email == "" {
+			return strings.TrimRight(cfg.BaseURL, "/") + "/sales/checkout/" + url.PathEscape(input.FlipbookID), nil
+		}
+		result, err := salesSvc.Checkout(ctx, sales.CheckoutInput{
+			WorkspaceID: input.WorkspaceID, FlipbookID: input.FlipbookID, Email: email,
+		})
+		if err != nil {
+			return "", err
+		}
+		return result.CheckoutURL, nil
+	}))
+
 	// In admin mode, populate the session principal on the public reader routes
 	// so signed-in staff can preview unpublished publications.
 	var adminAuth *auth.Auth
@@ -335,10 +383,16 @@ func runServer() {
 		r.Get("/qr", publicH.QR)
 	})
 
+	// Public sales flow: checkout page, Stripe return URLs, and webhook.
+	reader.Get("/sales/checkout/{id}", salesH.CheckoutPage)
+	reader.Get("/sales/success", salesH.CheckoutSuccess)
+	reader.Get("/sales/cancel", salesH.CheckoutCancel)
+	r.Post("/sales/webhook", salesH.StripeWebhook)
+
 	if cfg.SaaS.Enabled {
 		setupSaaSMode(r, cfg, db, store, w, tmpl, viewerH, embedH)
 	} else {
-		setupAdminMode(r, cfg, db, store, w, tmpl, apiH, pubService, adminAuth)
+		setupAdminMode(r, cfg, db, store, w, tmpl, apiH, pubService, adminAuth, analyticsH, engagementH, salesH, integrationsH)
 	}
 
 	// Start server
@@ -376,7 +430,7 @@ func runServer() {
 }
 
 // setupAdminMode configures routes for the original single-tenant admin mode.
-func setupAdminMode(r chi.Router, cfg *config.Config, db *database.DB, store *storage.Storage, w *worker.Worker, tmpl *template.Template, apiH *handlers.APIHandler, pubService *publishing.Service, a *auth.Auth) {
+func setupAdminMode(r chi.Router, cfg *config.Config, db *database.DB, store *storage.Storage, w *worker.Worker, tmpl *template.Template, apiH *handlers.APIHandler, pubService *publishing.Service, a *auth.Auth, analyticsH *handlers.AnalyticsHandler, engagementH *handlers.EngagementHandler, salesH *handlers.SalesHandler, integrationsH *handlers.IntegrationsHandler) {
 	if !a.HasPassword() {
 		log.Println("WARNING: No admin password set. Run './flipbook set-password' to secure the admin area.")
 	}
@@ -397,6 +451,14 @@ func setupAdminMode(r chi.Router, cfg *config.Config, db *database.DB, store *st
 	r.Group(func(r chi.Router) {
 		r.Use(a.RequireAuth)
 		adminH.RegisterRoutes(r)
+	})
+
+	// Feature pages: analytics, leads, sales, integrations (session principal
+	// plus CSRF so the templates' forms carry valid tokens).
+	r.Group(func(r chi.Router) {
+		r.Use(a.RequireAuth)
+		r.Use(a.CSRFMiddleware)
+		registerFeatureRoutes(r, analyticsH, engagementH, salesH, integrationsH)
 	})
 
 	// Settings mutations (session principal + CSRF)
@@ -433,6 +495,45 @@ func setupAdminMode(r chi.Router, cfg *config.Config, db *database.DB, store *st
 
 	log.Printf("Admin UI:  %s/admin", cfg.BaseURL)
 	log.Printf("API key:   %s", cfg.APIKey)
+}
+
+// registerFeatureRoutes mounts the analytics, leads, sales, and integrations
+// admin sections. Callers should wrap these routes with the session principal
+// and CSRF middleware.
+func registerFeatureRoutes(r chi.Router, analyticsH *handlers.AnalyticsHandler, engagementH *handlers.EngagementHandler, salesH *handlers.SalesHandler, integrationsH *handlers.IntegrationsHandler) {
+	// Analytics
+	r.Get("/admin/analytics", analyticsH.Dashboard)
+	r.Get("/admin/analytics/report", analyticsH.Report)
+	r.Get("/admin/analytics/export.json", analyticsH.ExportReportJSON)
+	r.Get("/admin/analytics/export.csv", analyticsH.ExportReportCSV)
+	r.Get("/admin/analytics/events.json", analyticsH.ExportEventsJSON)
+	r.Get("/admin/analytics/events.csv", analyticsH.ExportEventsCSV)
+	r.Post("/admin/analytics/privacy", analyticsH.UpdatePrivacySettings)
+	r.Get("/admin/flipbooks/{id}/analytics", analyticsH.PublicationDashboard)
+
+	// Leads (engagement)
+	r.Get("/admin/leads", engagementH.AdminLeads)
+	r.Get("/admin/leads/export.csv", engagementH.AdminExportLeads)
+	r.Get("/admin/leads/integrations", engagementH.AdminLeadIntegrations)
+	r.Post("/admin/leads/integrations/webhooks", engagementH.AdminCreateWebhook)
+	r.Post("/admin/leads/integrations/webhooks/{subscriptionID}", engagementH.AdminSetWebhookEnabled)
+	r.Post("/admin/flipbooks/{id}/lead-gate", engagementH.AdminUpdateLeadGate)
+	r.Post("/admin/leads/retention", engagementH.AdminSetLeadRetention)
+	r.Post("/admin/leads/{leadID}/delete", engagementH.AdminDeleteLead)
+	r.Post("/admin/leads/delete-for-flipbook", engagementH.AdminDeleteFlipbookLeads)
+	r.Post("/admin/subscribers/{subscriberID}/delete", engagementH.AdminDeleteSubscriber)
+
+	// Sales
+	r.Get("/admin/sales", salesH.AdminSales)
+	r.Get("/admin/sales.csv", salesH.AdminSalesCSV)
+	r.Get("/admin/sales/customers.csv", salesH.AdminCustomersCSV)
+	r.Post("/admin/sales/{purchaseID}/refund", salesH.AdminRefund)
+	r.Post("/admin/sales/{purchaseID}/revoke", salesH.AdminRevoke)
+	r.Get("/admin/flipbooks/{id}/sales", salesH.AdminSalesSettings)
+	r.Post("/admin/flipbooks/{id}/sales", salesH.AdminUpdateSalesSettings)
+
+	// Integrations (OAuth providers, exports, webhooks)
+	integrationsH.RegisterRoutes(r)
 }
 
 // setupSaaSMode configures routes for multi-tenant SaaS mode with LastSaaS integration.

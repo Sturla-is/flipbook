@@ -32,6 +32,7 @@ type PublicCheckoutInput struct {
 	WorkspaceID string
 	FlipbookID  string
 	ReturnURL   string
+	Email       string
 	Reader      publishing.Reader
 }
 
@@ -221,9 +222,14 @@ func (h *PublicHandler) Checkout(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "checkout is not configured", http.StatusServiceUnavailable)
 		return
 	}
+	email, err := publicCheckoutEmail(w, r)
+	if err != nil {
+		jsonError(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 	returnURL := distribution.CanonicalViewerURL(h.publicBaseURL(r), fb, 0)
 	checkoutURL, err := h.checkout.CreateCheckout(r.Context(), PublicCheckoutInput{
-		WorkspaceID: fb.WorkspaceID, FlipbookID: fb.ID, ReturnURL: returnURL,
+		WorkspaceID: fb.WorkspaceID, FlipbookID: fb.ID, ReturnURL: returnURL, Email: email,
 		Reader: readerAccessRequest(r, h.publishing, fb.ID, false).Reader,
 	})
 	if err != nil {
@@ -235,6 +241,34 @@ func (h *PublicHandler) Checkout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	jsonResponse(w, map[string]string{"checkout_url": checkoutURL})
+}
+
+// publicCheckoutEmail extracts an optional purchaser email from a JSON or
+// form-encoded checkout request. An empty email is valid: the checkout page or
+// the payment provider collects it.
+func publicCheckoutEmail(w http.ResponseWriter, r *http.Request) (string, error) {
+	contentType := strings.ToLower(r.Header.Get("Content-Type"))
+	switch {
+	case strings.HasPrefix(contentType, "application/json"):
+		r.Body = http.MaxBytesReader(w, r.Body, 16<<10)
+		var input struct {
+			Email string `json:"email"`
+		}
+		err := json.NewDecoder(r.Body).Decode(&input)
+		if errors.Is(err, io.EOF) {
+			return "", nil
+		}
+		if err != nil {
+			return "", errors.New("invalid checkout request")
+		}
+		return strings.TrimSpace(input.Email), nil
+	case strings.HasPrefix(contentType, "application/x-www-form-urlencoded"), strings.HasPrefix(contentType, "multipart/form-data"):
+		if err := r.ParseForm(); err != nil {
+			return "", errors.New("invalid checkout request")
+		}
+		return strings.TrimSpace(r.FormValue("email")), nil
+	}
+	return "", nil
 }
 
 type publicEventInput struct {

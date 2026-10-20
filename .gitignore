@@ -35,3 +35,6 @@ scripts/bootstrap.js
 
 # Local Docker runtime env (generated secrets)
 .env.docker
+
+# Local DB probe tool (contains dev credentials, never commit)
+cmd/dbprobe/

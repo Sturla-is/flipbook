@@ -4,6 +4,9 @@
 <meta name="robots" content="noindex,nofollow,noarchive">
 <title>{{.PageTitle}}</title>
 <link rel="icon" type="image/svg+xml" href="/static/img/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,600&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/css/style.css">
 {{end}}
 
@@ -13,7 +16,7 @@
 <a class="skip-link" href="#main-content">Skip to main content</a>
 <nav class="navbar" aria-label="Administration">
     <div class="nav-brand-row">
-        <a href="/admin" class="logo" aria-label="Flipbook library">{{if .SiteName}}{{.SiteName}}{{else}}Flipbook{{end}}</a>
+        <a href="/admin" class="logo" aria-label="Flipbook library">{{if .SiteName}}{{.SiteName}}{{else}}Flipbook{{end}}<span class="logo-dot" aria-hidden="true">.</span></a>
         {{if .Workspace}}<span class="workspace-label">{{.Workspace.Name}}</span>{{end}}
         <button type="button" class="nav-toggle" data-nav-toggle aria-expanded="false" aria-controls="admin-navigation">Menu</button>
     </div>
