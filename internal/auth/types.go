@@ -28,6 +28,18 @@ const (
 	sessionCookie  = SessionCookieName
 	settingPwdHash = "admin_password_hash"
 	bcryptCost     = 12
+
+	// SettingSessionTTLSeconds and SettingLoginAttemptsPerMinute are runtime
+	// overrides stored in the settings collection by the admin panel. They
+	// fall back to the server configuration when unset or invalid.
+	SettingSessionTTLSeconds      = "session_ttl_seconds"
+	SettingLoginAttemptsPerMinute = "login_attempts_per_minute"
+)
+
+const (
+	minSessionTTLSeconds = 3600           // 1 hour
+	maxSessionTTLSeconds = 30 * 24 * 3600 // 30 days
+	maxLoginAttemptLimit = 1000           // attempts per minute
 )
 
 var (

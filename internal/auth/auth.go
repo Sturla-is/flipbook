@@ -5,6 +5,7 @@ import (
 	"errors"
 	"html/template"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -171,6 +172,41 @@ func (a *Auth) loginWithCredentials(ctx context.Context, w http.ResponseWriter, 
 	return principal, nil
 }
 
+// sessionTTL returns the configured session lifetime, overridden by the
+// runtime SettingSessionTTLSeconds value stored by the admin panel. Values
+// outside the supported window are ignored.
+func (a *Auth) sessionTTL() time.Duration {
+	ttl := a.opts.SessionTTL
+	if a.store != nil {
+		value, err := a.store.GetSetting(SettingSessionTTLSeconds)
+		if err == nil {
+			seconds, parseErr := strconv.Atoi(strings.TrimSpace(value))
+			if parseErr == nil && seconds >= minSessionTTLSeconds && seconds <= maxSessionTTLSeconds {
+				ttl = time.Duration(seconds) * time.Second
+			}
+		}
+	}
+	return ttl
+}
+
+// throttleAllow applies the login throttle, first syncing its rate limit from
+// the runtime SettingLoginAttemptsPerMinute value stored by the admin panel.
+func (a *Auth) throttleAllow(keys ...string) (bool, time.Duration) {
+	if a.throttle == nil {
+		return false, time.Minute
+	}
+	if a.store != nil {
+		value, err := a.store.GetSetting(SettingLoginAttemptsPerMinute)
+		if err == nil {
+			limit, parseErr := strconv.Atoi(strings.TrimSpace(value))
+			if parseErr == nil && limit >= 1 && limit <= maxLoginAttemptLimit {
+				a.throttle.setLimit(limit)
+			}
+		}
+	}
+	return a.throttle.allow(keys...)
+}
+
 func (a *Auth) createSessionForUser(ctx context.Context, w http.ResponseWriter, user *models.User, preferredWorkspace string) (*Principal, error) {
 	if user == nil || !user.Active() {
 		return nil, ErrUnauthorized
@@ -212,19 +248,30 @@ func (a *Auth) createSessionForUser(ctx context.Context, w http.ResponseWriter, 
 	now := a.now()
 	session := &models.Session{
 		TokenHash: models.HashToken(token), UserID: user.ID, WorkspaceID: workspaceID,
-		CreatedAt: now, ExpiresAt: now.Add(a.opts.SessionTTL),
+		CreatedAt: now, ExpiresAt: now.Add(a.sessionTTL()),
 	}
 	if err := a.store.CreateSessionRecord(ctx, session); err != nil {
 		return nil, err
 	}
-	a.setSessionCookie(w, token, session.ExpiresAt)
+	a.setSessionCookie(w, token, session)
 	return &Principal{User: user, Session: session, Membership: membership}, nil
 }
 
-func (a *Auth) setSessionCookie(w http.ResponseWriter, token string, expires time.Time) {
+// setSessionCookie writes the session cookie. Max-Age is derived from the
+// stored session expiry so runtime TTL overrides are honored by browsers,
+// which prefer Max-Age over the Expires attribute.
+func (a *Auth) setSessionCookie(w http.ResponseWriter, token string, session *models.Session) {
+	expires := time.Time{}
+	if session != nil {
+		expires = session.ExpiresAt
+	}
+	maxAge := 0
+	if session != nil && !session.CreatedAt.IsZero() && session.ExpiresAt.After(session.CreatedAt) {
+		maxAge = int(session.ExpiresAt.Sub(session.CreatedAt).Seconds())
+	}
 	http.SetCookie(w, &http.Cookie{
 		Name: SessionCookieName, Value: token, Path: "/", Expires: expires,
-		MaxAge: int(a.opts.SessionTTL.Seconds()), HttpOnly: true,
+		MaxAge: maxAge, HttpOnly: true,
 		Secure: a.opts.SecureCookies || a.opts.HTTPSMode, SameSite: http.SameSiteLaxMode,
 	})
 }

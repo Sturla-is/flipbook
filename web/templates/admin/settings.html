@@ -1,0 +1,91 @@
+{{define "admin_settings"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>{{template "admin_head" .}}</head>
+<body>
+{{template "admin_nav" .}}
+<main class="container container-wide" id="main-content">
+    <div class="page-header"><div><h1>Settings</h1><p class="text-muted">Administrators, passwords, and instance configuration.</p></div></div>
+    {{template "admin_team_nav" .}}
+    {{template "admin_flash" .}}
+
+    <section class="panel" aria-labelledby="add-admin-heading">
+        <h2 id="add-admin-heading">Add administrator or team account</h2>
+        <form method="POST" action="/admin/settings/admins" class="form-grid">
+            {{template "admin_csrf" .}}
+            <div class="form-group"><label for="account-name">Name</label><input type="text" id="account-name" name="name" maxlength="200" required autocomplete="off"></div>
+            <div class="form-group"><label for="account-email">Email</label><input type="email" id="account-email" name="email" maxlength="320" required autocomplete="off"></div>
+            <div class="form-group"><label for="account-role">Workspace role</label><select id="account-role" name="role"><option value="admin" selected>Admin</option><option value="editor">Editor</option><option value="publisher">Publisher</option><option value="reader">Reader</option></select></div>
+            <div class="form-group"><label for="account-password">Password</label><input type="password" id="account-password" name="password" minlength="12" maxlength="72" required autocomplete="new-password"></div>
+            <div class="form-group"><label for="account-password-confirm">Confirm password</label><input type="password" id="account-password-confirm" name="confirm_password" minlength="12" maxlength="72" required autocomplete="new-password"></div>
+            <div class="form-actions"><button type="submit" class="btn btn-primary">Create account</button></div>
+        </form>
+        <p class="field-help">Creates the account immediately with local password sign-in; no invitation link is needed. Passwords must be 12&ndash;72 characters. The new account can sign in with its email and password.</p>
+    </section>
+
+    <section class="panel" aria-labelledby="primary-password-heading">
+        <h2 id="primary-password-heading">Primary administrator password</h2>
+        <p class="field-help">{{if .LegacyAdminPassword}}A password is configured for the primary &ldquo;admin&rdquo; login. Use this form to rotate it.{{else}}No password is set yet for the primary &ldquo;admin&rdquo; login. Set one here instead of the server command line.{{end}}</p>
+        <form method="POST" action="/admin/settings/password" class="form-grid" data-confirm="Change the primary administrator password?">
+            {{template "admin_csrf" .}}
+            <div class="form-group"><label for="admin-password">New password</label><input type="password" id="admin-password" name="password" minlength="12" maxlength="72" required autocomplete="new-password"></div>
+            <div class="form-group"><label for="admin-password-confirm">Confirm new password</label><input type="password" id="admin-password-confirm" name="confirm_password" minlength="12" maxlength="72" required autocomplete="new-password"></div>
+            <div class="form-actions"><button type="submit" class="btn btn-primary">Change administrator password</button></div>
+        </form>
+        <p class="field-help">Changing this password signs out every session that uses the primary &ldquo;admin&rdquo; login, including this one.</p>
+    </section>
+
+    <section class="panel" aria-labelledby="member-passwords-heading">
+        <h2 id="member-passwords-heading">Member accounts and passwords</h2>
+        <div class="table-scroll"><table class="data-table member-table"><caption class="sr-only">Workspace member accounts, sign-in method, and password management</caption><thead><tr><th scope="col">User</th><th scope="col">Role</th><th scope="col">Sign-in</th><th scope="col">Account</th><th scope="col">Set password</th></tr></thead><tbody>
+        {{range .Members}}
+        <tr>
+            <th scope="row">
+                <strong>{{.User.Name}}</strong>{{if .IsLegacyAdmin}} <span class="badge badge-ready">Primary administrator</span>{{end}}
+                {{if .User.Email}}<span class="table-secondary">{{.User.Email}}</span>{{else}}<span class="table-secondary">Signs in as &ldquo;admin&rdquo;</span>{{end}}
+            </th>
+            <td>{{if eq .Membership.Role "owner"}}<span class="badge">Owner</span>{{else}}<span class="badge">{{.Membership.Role}}</span>{{end}}</td>
+            <td>{{.AuthMethod}}</td>
+            <td>{{if .User.DisabledAt}}<span class="badge badge-error">Disabled</span>{{else}}<span class="badge badge-ready">Active</span>{{end}}{{if .User.LastLoginAt}}<span class="table-secondary">Last login {{.User.LastLoginAt.Format "2006-01-02 15:04"}}</span>{{end}}</td>
+            <td>
+                {{if .IsLegacyAdmin}}<span class="text-muted">Use the panel above</span>
+                {{else if eq .AuthMethod "OIDC"}}<span class="text-muted">Managed by OIDC</span>
+                {{else}}
+                <details class="inline-details"><summary>Set password</summary>
+                    <form method="POST" action="/admin/settings/admins/{{.User.ID}}/password" class="form-grid compact-form">
+                        {{template "admin_csrf" $}}
+                        <div class="form-group"><label for="member-password-{{.User.ID}}">New password</label><input type="password" id="member-password-{{.User.ID}}" name="password" minlength="12" maxlength="72" required autocomplete="new-password"></div>
+                        <div class="form-group"><label for="member-password-confirm-{{.User.ID}}">Confirm password</label><input type="password" id="member-password-confirm-{{.User.ID}}" name="confirm_password" minlength="12" maxlength="72" required autocomplete="new-password"></div>
+                        <button type="submit" class="btn btn-sm">Save password</button>
+                    </form>
+                </details>
+                {{end}}
+            </td>
+        </tr>
+        {{else}}<tr><td colspan="5">No workspace members were found.</td></tr>{{end}}
+        </tbody></table></div>
+        <p class="field-help">Roles are managed under Members, and enabling or disabling accounts is managed on the Team page. Setting a password signs out the user's existing sessions.</p>
+    </section>
+
+    <section class="panel" aria-labelledby="instance-heading">
+        <h2 id="instance-heading">Instance settings</h2>
+        <form method="POST" action="/admin/settings/instance" class="form-grid">
+            {{template "admin_csrf" .}}
+            <div class="form-group form-span-2"><label for="instance-site-name">Site name</label><input type="text" id="instance-site-name" name="site_name" value="{{.InstanceSettings.SiteName}}" maxlength="100" placeholder="Flipbook"><p class="field-help">Shown in the admin panel navigation. Leave blank to use &ldquo;Flipbook&rdquo;.</p></div>
+            <div class="form-group"><label for="instance-session-ttl">Session duration (hours)</label><input type="number" id="instance-session-ttl" name="session_ttl_hours" value="{{.InstanceSettings.SessionTTLHours}}" min="1" max="720" required><p class="field-help">Between 1 and 720 hours (30 days). Applies to new sessions.</p></div>
+            <div class="form-group"><label for="instance-login-limit">Sign-in attempts per minute</label><input type="number" id="instance-login-limit" name="login_attempts_per_minute" value="{{.InstanceSettings.LoginAttemptsPerMinute}}" min="1" max="1000" required><p class="field-help">Failed attempts allowed per minute, per account and per IP.</p></div>
+            <div class="form-actions form-span-2"><button type="submit" class="btn btn-primary">Save instance settings</button></div>
+        </form>
+        <p class="field-help">These values are stored in the database and apply immediately to new sessions and sign-in attempts.</p>
+    </section>
+
+    <section class="panel" aria-labelledby="server-info-heading">
+        <h2 id="server-info-heading">Server configuration</h2>
+        <dl class="definition-grid">{{range $key, $value := .ServerInfo}}<div><dt>{{$key}}</dt><dd>{{$value}}</dd></div>{{end}}</dl>
+        <p class="field-help">Server configuration is loaded from the config file and environment variables at startup and requires a restart to change.</p>
+    </section>
+</main>
+{{template "admin_scripts" .}}
+</body>
+</html>
+{{end}}

@@ -1,6 +1,7 @@
 # Binaries
 bin/
 flipbook
+.tools/
 
 # Runtime data
 data/

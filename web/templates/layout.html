@@ -13,7 +13,7 @@
 <a class="skip-link" href="#main-content">Skip to main content</a>
 <nav class="navbar" aria-label="Administration">
     <div class="nav-brand-row">
-        <a href="/admin" class="logo" aria-label="Flipbook library">Flipbook</a>
+        <a href="/admin" class="logo" aria-label="Flipbook library">{{if .SiteName}}{{.SiteName}}{{else}}Flipbook{{end}}</a>
         {{if .Workspace}}<span class="workspace-label">{{.Workspace.Name}}</span>{{end}}
         <button type="button" class="nav-toggle" data-nav-toggle aria-expanded="false" aria-controls="admin-navigation">Menu</button>
     </div>
@@ -39,6 +39,7 @@
     <a href="/admin/team" {{if eq .TeamSection "members"}}class="active" aria-current="page"{{end}}>Members</a>
     <a href="/admin/workspace" {{if eq .TeamSection "workspace"}}class="active" aria-current="page"{{end}}>Workspace settings</a>
     <a href="/admin/security" {{if eq .TeamSection "security"}}class="active" aria-current="page"{{end}}>API keys &amp; audit</a>
+    <a href="/admin/settings" {{if eq .TeamSection "settings"}}class="active" aria-current="page"{{end}}>Settings</a>
 </nav>
 {{end}}
 

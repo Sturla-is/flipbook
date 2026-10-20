@@ -22,6 +22,17 @@ func newLoginThrottle(limit int, window time.Duration, now func() time.Time) *lo
 	return &loginThrottle{limit: limit, window: window, now: now, items: make(map[string]throttleBucket)}
 }
 
+// setLimit updates the per-window attempt limit, used by the admin panel's
+// runtime login_attempts_per_minute setting.
+func (t *loginThrottle) setLimit(limit int) {
+	if t == nil || limit <= 0 {
+		return
+	}
+	t.mu.Lock()
+	t.limit = limit
+	t.mu.Unlock()
+}
+
 func (t *loginThrottle) allow(keys ...string) (bool, time.Duration) {
 	if t == nil || t.limit <= 0 {
 		return false, t.window

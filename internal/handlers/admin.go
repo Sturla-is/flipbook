@@ -15,6 +15,7 @@ import (
 	"unicode"
 
 	"github.com/metavert-io/flipbook/internal/auth"
+	"github.com/metavert-io/flipbook/internal/config"
 	"github.com/metavert-io/flipbook/internal/database"
 	"github.com/metavert-io/flipbook/internal/models"
 	"github.com/metavert-io/flipbook/internal/publishing"
@@ -41,6 +42,7 @@ type AdminHandler struct {
 	auth       *auth.Auth
 	httpClient *http.Client
 	maxBytes   int64
+	cfg        *config.Config
 	now        func() time.Time
 }
 
@@ -50,6 +52,7 @@ type AdminOptions struct {
 	HTTPClient *http.Client
 	MaxBytes   int64
 	Now        func() time.Time
+	Config     *config.Config
 }
 
 func NewAdminHandler(db *database.DB, store *storage.Storage, w *worker.Worker, tmpl *template.Template, baseURL string, maxUploadSize int64) *AdminHandler {
@@ -69,7 +72,7 @@ func NewAdminHandlerWithOptions(db *database.DB, store *storage.Storage, w *work
 	return &AdminHandler{
 		db: db, storage: store, worker: w, tmpl: tmpl, baseURL: strings.TrimRight(baseURL, "/"),
 		publisher: options.Publishing, auth: options.Auth, httpClient: options.HTTPClient,
-		maxBytes: options.MaxBytes, now: options.Now,
+		maxBytes: options.MaxBytes, cfg: options.Config, now: options.Now,
 	}
 }
 
@@ -120,12 +123,17 @@ func (h *AdminHandler) baseData(w http.ResponseWriter, r *http.Request, actor ad
 		"Notice":      boundedFlash(r.URL.Query().Get("notice")),
 		"Error":       boundedFlash(r.URL.Query().Get("error")),
 	}
-	if h.db != nil && actor.WorkspaceID != "" {
-		workspace, err := h.db.GetWorkspace(r.Context(), actor.WorkspaceID)
-		if err != nil {
-			return nil, err
+	if h.db != nil {
+		if siteName, err := h.db.GetSetting(settingSiteName); err == nil {
+			data["SiteName"] = strings.TrimSpace(siteName)
 		}
-		data["Workspace"] = workspace
+		if actor.WorkspaceID != "" {
+			workspace, err := h.db.GetWorkspace(r.Context(), actor.WorkspaceID)
+			if err != nil {
+				return nil, err
+			}
+			data["Workspace"] = workspace
+		}
 	}
 	return data, nil
 }
@@ -198,6 +206,10 @@ func adminErrorMessage(err error) (int, string) {
 		return http.StatusNotFound, "The requested resource was not found."
 	case errors.Is(err, database.ErrLastOwner):
 		return http.StatusConflict, "A workspace must retain at least one owner."
+	case errors.Is(err, auth.ErrAccountExists):
+		return http.StatusConflict, "An account with this email already exists."
+	case errors.Is(err, auth.ErrInvalidPassword):
+		return http.StatusBadRequest, "Use a password between 12 and 72 bytes."
 	case errors.Is(err, database.ErrConflict), errors.Is(err, storage.ErrRevisionActive), errors.Is(err, storage.ErrRevisionExists):
 		return http.StatusConflict, "The requested change conflicts with the current resource state."
 	case errors.Is(err, storage.ErrUploadTooLarge):

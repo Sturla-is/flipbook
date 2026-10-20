@@ -31,6 +31,8 @@ func (h *AdminHandler) RegisterRoutes(r chi.Router) {
 	r.Post("/admin/security/api-keys", h.CreateAPIKey)
 	r.Post("/admin/security/api-keys/{id}/revoke", h.RevokeAPIKey)
 
+	r.Get("/admin/settings", h.SettingsPage)
+
 	r.Get("/admin/flipbooks/{id}", h.Detail)
 	r.Get("/admin/flipbooks/{id}/links", h.LinkEditor)
 	r.Get("/admin/flipbooks/{id}/status", h.ConversionStatus)
@@ -55,4 +57,13 @@ func (h *AdminHandler) RegisterRoutes(r chi.Router) {
 	r.Post("/admin/flipbooks/{id}/revisions/{revisionID}/activate", h.ActivateRevision)
 	r.Post("/admin/flipbooks/{id}/share-tokens", h.CreateShareToken)
 	r.Post("/admin/flipbooks/{id}/share-tokens/{tokenID}/revoke", h.RevokeShareToken)
+}
+
+// RegisterSettingsRoutes registers the settings-page mutations. Callers should
+// wrap these routes with the session principal and CSRF middleware.
+func (h *AdminHandler) RegisterSettingsRoutes(r chi.Router) {
+	r.Post("/admin/settings/admins", h.CreateUserAccount)
+	r.Post("/admin/settings/admins/{userID}/password", h.SetUserPassword)
+	r.Post("/admin/settings/password", h.SetLegacyAdminPassword)
+	r.Post("/admin/settings/instance", h.UpdateInstanceSettings)
 }

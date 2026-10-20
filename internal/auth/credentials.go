@@ -186,6 +186,96 @@ func (a *Auth) ResetPassword(ctx context.Context, token, newPassword string) (*m
 	return user, nil
 }
 
+// CreateLocalUser provisions a named local account with a password and a
+// workspace membership directly from the admin panel, without the invitation
+// flow. Only workspace admins may create accounts; the owner role is never
+// assignable through this method.
+func (a *Auth) CreateLocalUser(ctx context.Context, workspaceID, actorUserID, name, email, password string, role models.Role) (*models.User, error) {
+	if a == nil || a.initErr != nil {
+		return nil, ErrNotConfigured
+	}
+	if _, err := a.managementMembership(ctx, workspaceID, actorUserID, models.RoleAdmin); err != nil {
+		return nil, err
+	}
+	email, err := normalizeEmail(email)
+	if err != nil {
+		return nil, err
+	}
+	name = strings.TrimSpace(name)
+	if name == "" || len(name) > 200 {
+		return nil, errors.New("account name is required and must be at most 200 characters")
+	}
+	if !role.Valid() || role == models.RoleOwner {
+		return nil, ErrForbidden
+	}
+	if _, err := a.store.GetUserByEmail(ctx, email); err == nil {
+		return nil, ErrAccountExists
+	} else if !errors.Is(err, database.ErrNotFound) {
+		return nil, err
+	}
+	hash, err := hashPassword(password)
+	if err != nil {
+		return nil, err
+	}
+	user := &models.User{Email: email, Name: name, PasswordHash: hash, Locale: "en"}
+	if err := a.store.CreateUser(ctx, user); err != nil {
+		return nil, err
+	}
+	membership := &models.Membership{WorkspaceID: workspaceID, UserID: user.ID, Role: role, InvitedBy: actorUserID}
+	if err := a.store.UpsertMembership(ctx, membership); err != nil {
+		return nil, err
+	}
+	a.audit(ctx, workspaceID, actorUserID, "", "auth.user.create", "user", user.ID, "success", map[string]string{"role": string(role)})
+	return user, nil
+}
+
+// SetUserPasswordByAdmin resets the local password of a workspace member from
+// the admin panel. It revokes every session of the target user. Only workspace
+// admins may reset passwords, and an owner's password can only be reset by an
+// owner.
+func (a *Auth) SetUserPasswordByAdmin(ctx context.Context, workspaceID, actorUserID, targetUserID, newPassword string) error {
+	if a == nil || a.initErr != nil {
+		return ErrNotConfigured
+	}
+	actorMembership, err := a.managementMembership(ctx, workspaceID, actorUserID, models.RoleAdmin)
+	if err != nil {
+		return err
+	}
+	targetMembership, err := a.store.GetMembership(ctx, workspaceID, targetUserID)
+	if err != nil {
+		return err
+	}
+	if targetMembership.Role == models.RoleOwner && actorMembership.Role != models.RoleOwner {
+		return ErrForbidden
+	}
+	hash, err := hashPassword(newPassword)
+	if err != nil {
+		return err
+	}
+	if err := a.store.SetUserPassword(ctx, targetUserID, hash); err != nil {
+		return err
+	}
+	a.audit(ctx, workspaceID, actorUserID, "", "auth.password.admin_set", "user", targetUserID, "success", nil)
+	return nil
+}
+
+// SetLegacyAdminPassword rotates the primary legacy "admin" login password
+// from the admin panel, replacing the CLI-only set-password flow for signed-in
+// admins. It revokes every session of the legacy admin user.
+func (a *Auth) SetLegacyAdminPassword(ctx context.Context, workspaceID, actorUserID, newPassword string) error {
+	if a == nil || a.initErr != nil {
+		return ErrNotConfigured
+	}
+	if _, err := a.managementMembership(ctx, workspaceID, actorUserID, models.RoleAdmin); err != nil {
+		return err
+	}
+	if err := a.SetPassword(newPassword); err != nil {
+		return err
+	}
+	a.audit(ctx, workspaceID, actorUserID, "", "auth.password.admin_set", "user", models.LegacyAdminUserID, "success", nil)
+	return nil
+}
+
 func (a *Auth) CreateInvitation(ctx context.Context, workspaceID, actorUserID, email string, role models.Role, ttl time.Duration) (string, *models.Invitation, error) {
 	if _, err := a.managementMembership(ctx, workspaceID, actorUserID, models.RoleAdmin); err != nil {
 		return "", nil, err

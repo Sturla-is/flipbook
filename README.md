@@ -96,6 +96,16 @@ Key settings:
 
 ## Usage
 
+### Admin settings
+
+The **Settings** section in the admin panel (Team → Settings, `/admin/settings`) manages administrators and instance configuration:
+
+- **Add accounts** — create named admins, editors, publishers, or readers with a name, email, and password directly, without an invitation link.
+- **Passwords** — rotate the primary `admin` login password from the UI (no CLI needed) and reset any local member's password; either action signs out that account's existing sessions.
+- **Instance settings** — site name (shown in the admin navigation), session duration, and the per-minute sign-in attempt limit. These are stored in the database and apply immediately; server-level options remain in the config file and require a restart.
+
+The `set-password` CLI command still works and is equivalent to rotating the primary administrator password.
+
 ### Upload a file
 
 1. Go to **http://localhost:8080/admin**

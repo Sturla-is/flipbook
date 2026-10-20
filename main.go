@@ -385,6 +385,7 @@ func setupAdminMode(r chi.Router, cfg *config.Config, db *database.DB, store *st
 		Auth:       a,
 		Publishing: pubService,
 		MaxBytes:   cfg.MaxUploadSize,
+		Config:     cfg,
 	})
 
 	// Auth routes (public)
@@ -396,6 +397,13 @@ func setupAdminMode(r chi.Router, cfg *config.Config, db *database.DB, store *st
 	r.Group(func(r chi.Router) {
 		r.Use(a.RequireAuth)
 		adminH.RegisterRoutes(r)
+	})
+
+	// Settings mutations (session principal + CSRF)
+	r.Group(func(r chi.Router) {
+		r.Use(a.RequireAuth)
+		r.Use(a.CSRFMiddleware)
+		adminH.RegisterSettingsRoutes(r)
 	})
 
 	// Link overlay API for the admin editor (session principal + CSRF)

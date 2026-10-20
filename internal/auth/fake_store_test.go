@@ -14,17 +14,18 @@ import (
 )
 
 type fakeStore struct {
-	settings     map[string]string
-	sessions     map[string]*models.Session
-	users        map[string]*models.User
-	workspaces   map[string]*models.Workspace
-	memberships  map[string]*models.Membership
-	invitations  map[string]*models.Invitation
-	apiKeys      map[string]*models.APIKey
-	audits       []*models.AuditEvent
-	nextID       int
-	readFailure  error
-	writeFailure error
+	settings        map[string]string
+	sessions        map[string]*models.Session
+	users           map[string]*models.User
+	workspaces      map[string]*models.Workspace
+	memberships     map[string]*models.Membership
+	invitations     map[string]*models.Invitation
+	apiKeys         map[string]*models.APIKey
+	audits          []*models.AuditEvent
+	nextID          int
+	readFailure     error
+	writeFailure    error
+	settingsFailure error
 }
 
 func newFakeStore() *fakeStore {
@@ -50,6 +51,9 @@ func (f *fakeStore) id() string {
 }
 
 func (f *fakeStore) GetSetting(key string) (string, error) {
+	if f.settingsFailure != nil {
+		return "", f.settingsFailure
+	}
 	if f.readFailure != nil {
 		return "", f.readFailure
 	}

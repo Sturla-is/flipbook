@@ -153,7 +153,7 @@ func (a *Auth) LoginSubmit(w http.ResponseWriter, r *http.Request) {
 	if throttleIdentifier == "" {
 		throttleIdentifier = "admin"
 	}
-	allowed, retry := a.throttle.allow("ip:"+a.clientIP(r), "account:"+throttleIdentifier)
+	allowed, retry := a.throttleAllow("ip:"+a.clientIP(r), "account:"+throttleIdentifier)
 	if !allowed {
 		seconds := int(retry / time.Second)
 		if seconds < 1 {
