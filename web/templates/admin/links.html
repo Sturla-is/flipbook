@@ -79,7 +79,7 @@
                 <p>Nothing selected yet. Click a box on the page, or draw a new hotspot to set its link.</p>
                 <p class="text-muted">Dashed amber boxes are links already embedded in the PDF — click one to import it.</p>
             </div>
-            <form id="props-form" class="form-grid" hidden>
+            <form id="props-form" class="form-grid" novalidate hidden>
                 <fieldset class="form-group form-span-2 type-segment" role="radiogroup" aria-label="Link type">
                     <legend>Type</legend>
                     <div class="segmented">
@@ -146,7 +146,7 @@
                         Delete
                     </button>
                 </div>
-                <p class="field-help form-span-2" id="props-dirty-hint" hidden>Position changes save automatically when you drop a box.</p>
+                <p class="field-help form-span-2" id="props-dirty-hint" hidden>Changes save automatically: link details as you type, position when you drop a box.</p>
             </form>
         </aside>
     </div>
@@ -156,7 +156,7 @@
     <script>window.LINK_EDITOR_DATA = {{.DataJSON}};</script>
 </main>
 {{template "admin_scripts" .}}
-<script src="/static/js/link-editor.js?v=2" defer></script>
+<script src="/static/js/link-editor.js?v=3" defer></script>
 </body>
 </html>
 {{end}}

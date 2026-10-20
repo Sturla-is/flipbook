@@ -27,6 +27,12 @@
     var SNAP_TOLERANCE = 0.015;
     var SNAP_POINTS = [0, 0.5, 1];
     var HANDLES = ["nw", "n", "ne", "e", "se", "s", "sw", "w"];
+    var AUTOSAVE_DELAY_URL = 600;
+    var AUTOSAVE_DELAY_TEXT = 900;
+    var AUTOSAVE_DELAY_STYLE = 500;
+    var maxPage = (data.pages || []).length;
+    var saveChains = {};
+    var saveTimers = {};
 
     var strip = document.getElementById("page-strip");
     var stage = document.querySelector(".link-editor-stage");
@@ -355,11 +361,19 @@
     }
 
     function selectPage(number) {
-        if (state.pending && state.pending.page === state.page) discardPending();
+        var leaving = state.pending && state.pending.page === state.page ? state.pending : null;
         number = clamp(number, 1, (data.pages || []).length);
         state.page = number;
         state.selectedId = null;
         setDrawMode(false);
+        if (leaving) {
+            state.pending = null;
+            if (validateForm(leaving) === null) {
+                runSave(leaving, false).catch(function (error) {
+                    toast(error.message, "error");
+                });
+            }
+        }
         renderStrip();
         renderStage();
         renderProps();
@@ -427,20 +441,21 @@
         propsEmpty.hidden = Boolean(overlay);
         propsClose.hidden = !overlay;
         if (!overlay) return;
-        setType(overlay.type || "external");
-        urlField.querySelector("input").value = overlay.url || "";
-        document.getElementById("link-target-page").value = overlay.target_page || "";
-        document.getElementById("link-title").value = overlay.title || "";
-        document.getElementById("link-enabled").checked = overlay.enabled !== false;
-        var style = overlay.style || {};
-        document.getElementById("link-color").value = style.color || "";
+        var d = draft(overlay);
+        setType(d.type !== undefined ? d.type : (overlay.type || "external"));
+        setInputValue(urlField.querySelector("input"), d.url !== undefined ? d.url : (overlay.url || ""));
+        setInputValue(document.getElementById("link-target-page"), d.target_page !== undefined ? String(d.target_page) : String(overlay.target_page || ""));
+        setInputValue(document.getElementById("link-title"), d.title !== undefined ? d.title : (overlay.title || ""));
+        document.getElementById("link-enabled").checked = d.enabled !== undefined ? d.enabled : overlay.enabled !== false;
+        var style = mergeStyle(d.style, overlay.style) || {};
+        setInputValue(document.getElementById("link-color"), style.color || "");
         var opacity = Number(style.opacity);
         if (!isFinite(opacity) || opacity <= 0 || opacity > 1) opacity = 0.18;
-        document.getElementById("link-opacity").value = String(opacity);
+        setInputValue(document.getElementById("link-opacity"), String(opacity));
         document.getElementById("opacity-value").value = opacity.toFixed(2);
         var radius = Number(style.radius);
         if (!isFinite(radius) || radius < 0) radius = 0;
-        document.getElementById("link-radius").value = String(radius);
+        setInputValue(document.getElementById("link-radius"), String(radius));
         document.getElementById("radius-value").value = radius + "px";
         syncRectInputs(overlay);
         deleteButton.hidden = !overlay.id;
@@ -466,47 +481,251 @@
         return normalizeRect({ x: x / 100, y: y / 100, width: w / 100, height: h / 100 });
     }
 
-    function formPayload(overlay) {
-        var type = currentType();
+    /* ---------------- save plumbing ---------------- */
+
+    function draft(overlay) {
+        if (!overlay._draft) overlay._draft = {};
+        return overlay._draft;
+    }
+
+    function normalizeURL(raw) {
+        var value = String(raw || "").trim();
+        if (!value) return "";
+        if (!/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(value)) value = "https://" + value;
+        try {
+            var parsed = new URL(value);
+            if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return "";
+            if (!parsed.hostname) return "";
+            return parsed.href;
+        } catch (_) {
+            return "";
+        }
+    }
+
+    function mergeStyle(draftStyle, savedStyle) {
+        var out = Object.assign({}, savedStyle || {}, draftStyle || {});
+        if (!out.color && !out.opacity && !out.radius) return null;
+        return out;
+    }
+
+    function buildPayload(overlay) {
+        var d = draft(overlay);
+        var type = d.type !== undefined ? d.type : (overlay.type || "external");
+        var style = mergeStyle(d.style, overlay.style);
         var payload = {
             page: overlay.page,
             x: overlay.x, y: overlay.y, width: overlay.width, height: overlay.height,
             type: type,
-            url: type === "internal" ? "" : urlField.querySelector("input").value.trim(),
-            target_page: type === "internal" ? parseInt(document.getElementById("link-target-page").value, 10) || 0 : 0,
-            title: document.getElementById("link-title").value.trim(),
-            enabled: document.getElementById("link-enabled").checked
+            url: type === "internal" ? "" : normalizeURL(d.url !== undefined ? d.url : (overlay.url || "")),
+            target_page: type === "internal" ? (parseInt(d.target_page !== undefined ? d.target_page : (overlay.target_page || ""), 10) || 0) : 0,
+            title: d.title !== undefined ? d.title.trim() : (overlay.title || ""),
+            enabled: d.enabled !== undefined ? d.enabled : overlay.enabled !== false
         };
-        var color = document.getElementById("link-color").value.trim();
-        var opacity = parseFloat(document.getElementById("link-opacity").value);
-        var radius = parseFloat(document.getElementById("link-radius").value);
-        if (color || isFinite(opacity) || isFinite(radius)) {
-            payload.style = { color: color };
-            if (isFinite(opacity)) payload.style.opacity = opacity;
-            if (isFinite(radius)) payload.style.radius = radius;
-        } else if (overlay.style) {
-            payload.style = {};
-        }
+        if (style) payload.style = style;
         return payload;
+    }
+
+    function validateForm(overlay) {
+        var d = draft(overlay);
+        var type = d.type !== undefined ? d.type : (overlay.type || "external");
+        if (type === "internal") {
+            var raw = d.target_page !== undefined ? d.target_page : (overlay.target_page || "");
+            var target = parseInt(raw, 10);
+            if (!isFinite(target) || target < 1 || target > maxPage) {
+                return "Enter a page number between 1 and " + maxPage + " for the link to jump to.";
+            }
+            return null;
+        }
+        var url = normalizeURL(d.url !== undefined ? d.url : (overlay.url || ""));
+        if (!url) {
+            return "Enter a link URL starting with https:// (for example https://example.com).";
+        }
+        return null;
+    }
+
+    function snapshotEqual(overlay, payload) {
+        var s = overlay.__saved;
+        if (!s) return false;
+        if (s.type !== payload.type || s.url !== payload.url || s.target_page !== payload.target_page ||
+            s.title !== payload.title || s.enabled !== payload.enabled) {
+            return false;
+        }
+        var ps = payload.style || null, ss = s.style || null;
+        if (!ps && !ss) return true;
+        if (!ps || !ss) return false;
+        return ps.color === ss.color && ps.opacity === ss.opacity && ps.radius === ss.radius;
+    }
+
+    function markSaved(overlay, source) {
+        overlay._draft = null;
+        overlay.__saved = {
+            type: source.type || "external",
+            url: source.url || "",
+            target_page: source.target_page || 0,
+            title: source.title || "",
+            enabled: source.enabled !== false,
+            style: source.style ? { color: source.style.color || "", opacity: source.style.opacity || 0, radius: source.style.radius || 0 } : null,
+            x: source.x, y: source.y, width: source.width, height: source.height
+        };
+    }
+
+    function enqueueSave(overlay, task) {
+        var key = overlay.id || ("pending:" + overlay.page);
+        var prev = saveChains[key] || Promise.resolve();
+        var run = prev.then(task, task);
+        saveChains[key] = run.catch(function () {});
+        return run;
+    }
+
+    function runSave(overlay, explicit) {
+        return enqueueSave(overlay, async function () {
+            if (overlay.__deleted || (!overlay.id && overlay.__discarded)) return { skipped: true };
+            var error = validateForm(overlay);
+            if (error) {
+                if (explicit) toast(error, "error");
+                return { skipped: true };
+            }
+            var payload = buildPayload(overlay);
+            if (overlay.id) {
+                if (!explicit && snapshotEqual(overlay, payload)) return { skipped: true };
+                var updated = await api("PATCH", "/" + encodeURIComponent(overlay.id), payload);
+                Object.assign(overlay, updated);
+                markSaved(overlay, updated);
+                renderOverlays();
+                renderProps();
+                if (explicit) toast("Link saved."); else hint("Link saved.");
+                return updated;
+            }
+            var created = await api("POST", "", payload);
+            state.overlays.push(created);
+            state.pending = null;
+            if (created.page === state.page) state.selectedId = created.id;
+            overlay.id = created.id;
+            markSaved(overlay, created);
+            setDrawMode(false);
+            renderOverlays();
+            renderProps();
+            renderStrip();
+            toast("Hotspot created and live in the reader.");
+            return created;
+        });
+    }
+
+    function scheduleAutosave(overlay, delay) {
+        if (!overlay) return;
+        var key = overlay.id || ("pending:" + overlay.page);
+        if (saveTimers[key]) clearTimeout(saveTimers[key]);
+        saveTimers[key] = setTimeout(function () {
+            saveTimers[key] = null;
+            runSave(overlay, false).catch(function (error) {
+                toast(error.message, "error");
+            });
+        }, delay);
+    }
+
+    function setInputValue(input, value) {
+        if (document.activeElement !== input) input.value = value;
+    }
+
+    function syncFormIntoDraft(overlay) {
+        var d = draft(overlay);
+        d.type = currentType();
+        d.url = urlField.querySelector("input").value.trim();
+        d.target_page = document.getElementById("link-target-page").value.trim();
+        d.title = document.getElementById("link-title").value.trim();
+        d.enabled = document.getElementById("link-enabled").checked;
+    }
+
+    function pendingHasDraft(overlay) {
+        var d = overlay && overlay._draft;
+        return Boolean(d && (d.url || d.target_page || d.title));
+    }
+
+    function hasUnsavedChanges() {
+        if (state.pending && pendingHasDraft(state.pending)) return true;
+        for (var i = 0; i < state.overlays.length; i++) {
+            if (state.overlays[i]._draft && Object.keys(state.overlays[i]._draft).length > 0) return true;
+        }
+        return false;
     }
 
     /* ---------------- form events ---------------- */
 
+    var editedOverlay = null;
+
     document.querySelectorAll('input[name="link-type"]').forEach(function (radio) {
-        radio.addEventListener("change", syncTypeFields);
+        radio.addEventListener("change", function () {
+            var overlay = selectedOverlay();
+            if (overlay) draft(overlay).type = currentType();
+            syncTypeFields();
+        });
     });
 
     urlField.querySelector("input").addEventListener("input", function () {
+        var overlay = selectedOverlay();
+        if (overlay) {
+            draft(overlay).url = this.value;
+            if (this.value.trim()) scheduleAutosave(overlay, AUTOSAVE_DELAY_URL);
+        }
         syncTypeFields();
         syncSwatches();
     });
+    urlField.querySelector("input").addEventListener("focus", function () { editedOverlay = selectedOverlay(); });
+    urlField.querySelector("input").addEventListener("blur", function () {
+        if (editedOverlay && editedOverlay === selectedOverlay()) scheduleAutosave(editedOverlay, 0);
+    });
 
-    document.getElementById("link-color").addEventListener("input", syncSwatches);
+    document.getElementById("link-target-page").addEventListener("input", function () {
+        var overlay = selectedOverlay();
+        if (overlay) {
+            draft(overlay).target_page = this.value;
+            if (this.value.trim()) scheduleAutosave(overlay, AUTOSAVE_DELAY_URL);
+        }
+    });
+    document.getElementById("link-target-page").addEventListener("focus", function () { editedOverlay = selectedOverlay(); });
+    document.getElementById("link-target-page").addEventListener("blur", function () {
+        if (editedOverlay && editedOverlay === selectedOverlay()) scheduleAutosave(editedOverlay, 0);
+    });
+
+    document.getElementById("link-title").addEventListener("input", function () {
+        var overlay = selectedOverlay();
+        if (overlay) {
+            draft(overlay).title = this.value;
+            scheduleAutosave(overlay, AUTOSAVE_DELAY_TEXT);
+        }
+    });
+
+    document.getElementById("link-enabled").addEventListener("change", function () {
+        var overlay = selectedOverlay();
+        if (overlay) {
+            draft(overlay).enabled = this.checked;
+            scheduleAutosave(overlay, 0);
+        }
+    });
+
+    document.getElementById("link-color").addEventListener("input", function () {
+        syncSwatches();
+        var overlay = selectedOverlay();
+        if (overlay) {
+            draft(overlay).style = Object.assign({}, draft(overlay).style, { color: this.value.trim() });
+            scheduleAutosave(overlay, AUTOSAVE_DELAY_STYLE);
+        }
+    });
     document.getElementById("link-opacity").addEventListener("input", function () {
         document.getElementById("opacity-value").value = parseFloat(this.value).toFixed(2);
+        var overlay = selectedOverlay();
+        if (overlay) {
+            draft(overlay).style = Object.assign({}, draft(overlay).style, { opacity: parseFloat(this.value) });
+            scheduleAutosave(overlay, AUTOSAVE_DELAY_STYLE);
+        }
     });
     document.getElementById("link-radius").addEventListener("input", function () {
         document.getElementById("radius-value").value = parseInt(this.value, 10) + "px";
+        var overlay = selectedOverlay();
+        if (overlay) {
+            draft(overlay).style = Object.assign({}, draft(overlay).style, { radius: parseFloat(this.value) });
+            scheduleAutosave(overlay, AUTOSAVE_DELAY_STYLE);
+        }
     });
 
     ["link-x", "link-y", "link-w", "link-h"].forEach(function (id) {
@@ -519,18 +738,20 @@
             renderOverlays();
             var meta = document.querySelector(".link-box.is-selected .box-meta");
             if (meta) meta.textContent = fmtRect(overlay);
+            scheduleAutosave(overlay, AUTOSAVE_DELAY_STYLE);
         });
     });
 
     document.getElementById("color-swatches").addEventListener("click", function (event) {
         var swatch = event.target.closest(".swatch[data-color]");
         if (!swatch) return;
-        document.getElementById("link-color").value = swatch.dataset.color;
-        syncSwatches();
+        var input = document.getElementById("link-color");
+        input.value = swatch.dataset.color;
+        input.dispatchEvent(new Event("input", { bubbles: true }));
     });
 
     openButton.addEventListener("click", function () {
-        var url = urlField.querySelector("input").value.trim();
+        var url = normalizeURL(urlField.querySelector("input").value) || urlField.querySelector("input").value.trim();
         if (!url) return;
         try {
             var parsed = new URL(url, window.location.origin);
@@ -542,36 +763,22 @@
 
     propsClose.addEventListener("click", deselect);
 
-    propsForm.addEventListener("submit", async function (event) {
+    propsForm.addEventListener("submit", function (event) {
         event.preventDefault();
-        if (!propsForm.reportValidity()) return;
         var overlay = selectedOverlay();
         if (!overlay) return;
         var rect = readRectInputs();
         if (rect) Object.assign(overlay, rect);
-        var payload = formPayload(overlay);
-        saveButton.disabled = true;
-        try {
-            if (overlay.id) {
-                var updated = await api("PATCH", "/" + encodeURIComponent(overlay.id), payload);
-                Object.assign(overlay, updated);
-                toast("Link saved.");
-            } else {
-                var created = await api("POST", "", payload);
-                state.overlays.push(created);
-                state.pending = null;
-                state.selectedId = created.id;
-                setDrawMode(false);
-                toast("Hotspot created and live in the reader.");
-            }
-            renderOverlays();
-            renderProps();
-            renderStrip();
-        } catch (error) {
-            toast(error.message, "error");
-        } finally {
-            saveButton.disabled = false;
+        syncFormIntoDraft(overlay);
+        var error = validateForm(overlay);
+        if (error) {
+            toast(error, "error");
+            return;
         }
+        saveButton.disabled = true;
+        runSave(overlay, true)
+            .catch(function (saveError) { toast(saveError.message, "error"); })
+            .finally(function () { saveButton.disabled = false; });
     });
 
     deleteButton.addEventListener("click", async function () {
@@ -586,19 +793,20 @@
         }
         if (!window.confirm("Delete this hotspot? The PDF link it replaced, if any, will reappear.")) return;
         deleteButton.disabled = true;
-        try {
+        enqueueSave(overlay, async function () {
             await api("DELETE", "/" + encodeURIComponent(overlay.id));
+            overlay.__deleted = true;
             state.overlays = state.overlays.filter(function (candidate) { return candidate.id !== overlay.id; });
             state.selectedId = null;
             renderOverlays();
             renderProps();
             renderStrip();
             toast("Hotspot deleted.");
-        } catch (error) {
+        }).catch(function (error) {
             toast(error.message, "error");
-        } finally {
+        }).finally(function () {
             deleteButton.disabled = false;
-        }
+        });
     });
 
     duplicateButton.addEventListener("click", async function () {
@@ -606,12 +814,14 @@
         if (!overlay || !overlay.id) return;
         var rect = readRectInputs();
         if (rect) Object.assign(overlay, rect);
-        var payload = formPayload(overlay);
+        syncFormIntoDraft(overlay);
+        var payload = buildPayload(overlay);
         payload.x = clamp(overlay.x + 0.02, 0, 1 - overlay.width);
         payload.y = clamp(overlay.y + 0.02, 0, 1 - overlay.height);
         duplicateButton.disabled = true;
         try {
             var created = await api("POST", "", payload);
+            markSaved(created, created);
             state.overlays.push(created);
             state.selectedId = created.id;
             renderOverlays();
@@ -643,6 +853,7 @@
         }
         try {
             var created = await api("POST", "", payload);
+            markSaved(created, created);
             state.overlays.push(created);
             state.selectedId = created.id;
             renderOverlays();
@@ -680,6 +891,7 @@
                     payload.url = link.url || "";
                 }
                 var created = await api("POST", "", payload);
+                markSaved(created, created);
                 state.overlays.push(created);
                 done++;
             }
@@ -741,10 +953,14 @@
     }
 
     function startDrag(event, overlay, unsaved) {
+        if (state.drawMode) return; // let the canvas draw handler take over
         if (event.button !== 0) return;
         event.preventDefault();
         event.stopPropagation();
         selectOverlay(overlay);
+        if (document.activeElement && typeof document.activeElement.blur === "function") {
+            document.activeElement.blur();
+        }
         var handle = event.target.classList && event.target.classList.contains("resize-handle") ? event.target.dataset.handle : null;
         state.drag = {
             overlay: overlay,
@@ -812,15 +1028,23 @@
         var overlay = drag.overlay;
         var moved = overlay.x !== drag.origin.x || overlay.y !== drag.origin.y ||
             overlay.width !== drag.origin.width || overlay.height !== drag.origin.height;
-        if (!moved || drag.unsaved || !overlay.id) {
+        if (!moved || drag.unsaved || !overlay.id || overlay.__deleted) {
+            if (moved && !overlay.__deleted) {
+                runSave(overlay, false).catch(function (error) {
+                    toast(error.message, "error");
+                });
+            }
             renderOverlays();
             return;
         }
         try {
-            var updated = await api("PATCH", "/" + encodeURIComponent(overlay.id), {
-                x: overlay.x, y: overlay.y, width: overlay.width, height: overlay.height
+            var updated = await enqueueSave(overlay, function () {
+                return api("PATCH", "/" + encodeURIComponent(overlay.id), {
+                    x: overlay.x, y: overlay.y, width: overlay.width, height: overlay.height
+                });
             });
             Object.assign(overlay, updated);
+            markSaved(overlay, updated);
             toast("Position saved.");
         } catch (error) {
             Object.assign(overlay, drag.origin);
@@ -913,10 +1137,11 @@
         renderProps();
         updateEmptyState();
         focusUrl();
-        toast("New hotspot drawn \u2014 set the link and press Create.");
+        toast("New hotspot drawn \u2014 set its link; it saves automatically.");
     }
 
     function discardPending() {
+        if (state.pending) state.pending.__discarded = true;
         state.pending = null;
     }
 
@@ -971,14 +1196,21 @@
         renderOverlays();
         syncRectInputs(overlay);
         if (overlay.id) {
-            api("PATCH", "/" + encodeURIComponent(overlay.id), {
-                x: overlay.x, y: overlay.y, width: overlay.width, height: overlay.height
+            enqueueSave(overlay, function () {
+                return api("PATCH", "/" + encodeURIComponent(overlay.id), {
+                    x: overlay.x, y: overlay.y, width: overlay.width, height: overlay.height
+                });
             }).then(function (updated) {
                 Object.assign(overlay, updated);
+                markSaved(overlay, updated);
                 renderOverlays();
                 syncRectInputs(overlay);
                 hint("Nudged \u2014 position saved.");
             }).catch(function (error) {
+                toast(error.message, "error");
+            });
+        } else {
+            runSave(overlay, false).catch(function (error) {
                 toast(error.message, "error");
             });
         }
@@ -988,6 +1220,39 @@
 
     prevPageButton.addEventListener("click", function () { selectPage(state.page - 1); });
     nextPageButton.addEventListener("click", function () { selectPage(state.page + 1); });
+
+    state.overlays.forEach(function (overlay) { markSaved(overlay, overlay); });
+    propsForm.noValidate = true;
+
+    window.addEventListener("beforeunload", function (event) {
+        if (hasUnsavedChanges()) {
+            event.preventDefault();
+            event.returnValue = "";
+        }
+    });
+
+    window.addEventListener("pagehide", function () {
+        var token = csrfToken();
+        var headers = { "Accept": "application/json", "X-Requested-With": "XMLHttpRequest", "Content-Type": "application/json" };
+        if (token) headers["X-CSRF-Token"] = token;
+        if (state.pending && pendingHasDraft(state.pending) && validateForm(state.pending) === null) {
+            fetch(data.api, {
+                method: "POST", credentials: "same-origin", keepalive: true,
+                headers: headers, body: JSON.stringify(buildPayload(state.pending))
+            }).catch(function () {});
+        }
+        state.overlays.forEach(function (overlay) {
+            if (overlay.id && overlay._draft && validateForm(overlay) === null) {
+                var payload = buildPayload(overlay);
+                if (!snapshotEqual(overlay, payload)) {
+                    fetch(data.api + "/" + encodeURIComponent(overlay.id), {
+                        method: "PATCH", credentials: "same-origin", keepalive: true,
+                        headers: headers, body: JSON.stringify(payload)
+                    }).catch(function () {});
+                }
+            }
+        });
+    });
 
     renderStrip();
     renderStage();
