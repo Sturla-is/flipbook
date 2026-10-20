@@ -94,6 +94,9 @@ func repositoryError(err error) error {
 	if errors.Is(err, database.ErrConflict) {
 		return conflict("publication conflict", err)
 	}
+	if mongo.IsDuplicateKeyError(err) {
+		return conflict("publication external identifier is already in use in this workspace", err)
+	}
 	if errors.Is(err, database.ErrForbidden) {
 		return forbidden(CodeForbidden, "insufficient workspace permissions")
 	}

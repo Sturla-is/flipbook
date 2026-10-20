@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log"
 	"net/http"
 	"net/url"
 	"time"
@@ -12,6 +13,9 @@ import (
 
 func (h *AdminHandler) lifecycleError(w http.ResponseWriter, r *http.Request, actor adminActor, id string, err error) {
 	status, message := adminErrorMessage(err)
+	if status >= http.StatusInternalServerError {
+		log.Printf("Admin lifecycle action failed (flipbook %s): %v", id, err)
+	}
 	if adminWantsJSON(r) {
 		adminJSONError(w, message, status)
 		return

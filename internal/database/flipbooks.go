@@ -237,10 +237,9 @@ func (d *DB) UpdateFlipbookMetadata(ctx context.Context, fb *models.Flipbook) er
 	if fb.ID == "" || fb.WorkspaceID == "" {
 		return errors.New("flipbook id and workspace id are required")
 	}
-	result, err := d.flipbooks.UpdateOne(ctx, bson.M{"_id": fb.ID, "workspace_id": fb.WorkspaceID, "deleted_at": nil}, bson.M{"$set": bson.M{
+	set := bson.M{
 		"title": fb.Title, "description": fb.Description, "tags": fb.Tags,
-		"collection_ids": fb.CollectionIDs, "external_source": fb.ExternalSource,
-		"external_id": fb.ExternalID, "language": fb.Language, "seo": fb.SEO,
+		"collection_ids": fb.CollectionIDs, "language": fb.Language, "seo": fb.SEO,
 		"branding": fb.Branding, "download": fb.Download, "embed": fb.Embed,
 		"share": fb.Share, "cta": fb.CTA, "lead_gate": fb.LeadGate, "sales": fb.Sales,
 		"visibility": fb.Visibility, "review_state": fb.ReviewState,
@@ -249,7 +248,19 @@ func (d *DB) UpdateFlipbookMetadata(ctx context.Context, fb *models.Flipbook) er
 		"is_public":     fb.PublicationState == models.PublicationPublished && (fb.Visibility == models.VisibilityPublic || fb.Visibility == models.VisibilityUnlisted),
 		"password_hash": fb.PasswordHash, "access_tokens": fb.AccessTokens,
 		"updated_at": time.Now().UTC(),
-	}})
+	}
+	// The (workspace_id, external_source, external_id) unique index treats empty
+	// strings as real values, so writing "" for flipbooks without an external
+	// source makes every such flipbook collide with the first one. Keep empty
+	// external identifiers absent, matching the models' omitempty tags.
+	update := bson.M{"$set": set}
+	if fb.ExternalID != "" || fb.ExternalSource != "" {
+		set["external_source"] = fb.ExternalSource
+		set["external_id"] = fb.ExternalID
+	} else {
+		update["$unset"] = bson.M{"external_source": "", "external_id": ""}
+	}
+	result, err := d.flipbooks.UpdateOne(ctx, bson.M{"_id": fb.ID, "workspace_id": fb.WorkspaceID, "deleted_at": nil}, update)
 	if err != nil {
 		return err
 	}
