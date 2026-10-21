@@ -446,6 +446,12 @@ func setupAdminMode(r chi.Router, cfg *config.Config, db *database.DB, store *st
 	r.Get("/login", a.LoginPage)
 	r.Post("/login", a.LoginSubmit)
 	r.Post("/logout", a.LogoutHandler)
+	// These handlers check method, CSRF, and (for /account/password) the
+	// session themselves, so they mount without middleware.
+	r.HandleFunc("/invitation", a.InvitationHandler)
+	r.HandleFunc("/password-reset", a.PasswordResetRequestHandler)
+	r.HandleFunc("/password-reset/confirm", a.PasswordResetHandler)
+	r.HandleFunc("/account/password", a.ChangePasswordHandler)
 
 	// Admin routes (protected)
 	r.Group(func(r chi.Router) {
