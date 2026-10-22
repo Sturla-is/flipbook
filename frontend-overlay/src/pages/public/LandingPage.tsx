@@ -15,8 +15,8 @@ export default function LandingPage() {
       <header className="border-b border-dark-800/50">
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <BookOpen className="w-7 h-7 text-primary-400" />
-            <span className="text-xl font-bold text-white">Flipbook</span>
+            <img src="/static/img/penninn-midlun-logo.svg" alt="Penninn Midlun" className="h-8 w-auto" />
+            <span className="text-xl font-bold text-white">Penninn Midlun</span>
           </div>
           <div className="flex items-center gap-4">
             <Link to="/login" className="text-sm text-dark-300 hover:text-white transition-colors">
@@ -61,7 +61,7 @@ export default function LandingPage() {
               <h2 className="text-lg font-semibold text-white">Prefer to self-host?</h2>
             </div>
             <p className="text-dark-300 mb-4 max-w-xl mx-auto">
-              Flipbook is free and open source. Run it on your own infrastructure with full control over your data.
+              Penninn Midlun is free and open source. Run it on your own infrastructure with full control over your data.
             </p>
             <a
               href="https://metavert.io/flipbook"
@@ -199,8 +199,8 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-4">
           <p className="text-dark-500 text-sm">
             &copy; 2026{' '}
-            <a href="https://metavert.io" target="_blank" rel="noopener noreferrer" className="hover:text-dark-300 transition-colors">
-              Metavert LLC
+            <a href="https://www.penninn.is" target="_blank" rel="noopener noreferrer" className="hover:text-dark-300 transition-colors">
+              Penninn Eymundsson
             </a>
           </p>
           <div className="flex items-center gap-6 text-sm text-dark-500">

@@ -268,7 +268,7 @@ func (c *salesforceConnector) SyncLead(ctx context.Context, lead *models.Lead) e
 	if lastName == "" {
 		lastName = "Reader"
 	}
-	body := map[string]string{"Email": email, "LastName": lastName, "Company": "Flipbook"}
+	body := map[string]string{"Email": email, "LastName": lastName, "Company": "Penninn Midlun"}
 	if firstName != "" {
 		body["FirstName"] = firstName
 	}

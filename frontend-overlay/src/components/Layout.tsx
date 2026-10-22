@@ -89,9 +89,10 @@ export default function Layout() {
         }))
     : defaultNavItems;
 
-  const appName = branding.appName || 'Flipbook';
-  const logoMode = branding.logoMode || 'text';
-  const logoUrl = branding.logoUrl;
+  const hasCustomBranding = Boolean(branding.appName && branding.appName !== 'LastSaaS') || Boolean(branding.logoUrl);
+  const appName = branding.appName && branding.appName !== 'LastSaaS' ? branding.appName : 'Penninn Midlun';
+  const logoUrl = branding.logoUrl || '/static/img/penninn-midlun-logo.svg';
+  const logoMode = hasCustomBranding ? (branding.logoMode || 'text') : 'both';
 
   return (
     <div className="min-h-screen bg-dark-950">
@@ -103,7 +104,7 @@ export default function Layout() {
             <div className="flex items-center gap-6">
               <Link to="/dashboard" className="flex items-center gap-2">
                 {(logoMode === 'image' || logoMode === 'both') && logoUrl ? (
-                  <img src={logoUrl} alt={appName} className="h-8 w-8 rounded-lg object-contain" />
+                  <img src={logoUrl} alt={appName} className={branding.logoUrl ? 'h-8 w-8 rounded-lg object-contain' : 'h-8 w-auto'} />
                 ) : (
                   <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-500 to-accent-purple flex items-center justify-center">
                     <span className="text-white font-bold text-sm">{appName.slice(0, 2).toUpperCase()}</span>

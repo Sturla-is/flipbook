@@ -61,7 +61,7 @@ func (h *AdminHandler) renderSecurity(w http.ResponseWriter, r *http.Request, ac
 		"resource_id": query.Get("resource_id"), "from": query.Get("from"), "to": query.Get("to"),
 	}
 	data := map[string]any{
-		"PageTitle": "API keys and audit - Flipbook", "TeamSection": "security", "APIKeys": keys,
+		"PageTitle": "API keys and audit - Penninn Midlun", "TeamSection": "security", "APIKeys": keys,
 		"AuditEvents": events, "AuditFilters": filters, "AuditLimit": limit,
 		"Scopes": []string{
 			models.ScopeFlipbooksRead, models.ScopeFlipbooksWrite, models.ScopeAnalyticsRead,

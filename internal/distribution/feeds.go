@@ -82,7 +82,7 @@ type rssGUID struct {
 
 func RSS(title, link, description string, items []FeedItem) ([]byte, error) {
 	document := rssDocument{Version: "2.0", Channel: rssChannel{
-		Title: title, Link: link, Description: description, Generator: "Flipbook",
+		Title: title, Link: link, Description: description, Generator: "Penninn Midlun",
 		Items: make([]rssItem, 0, len(items)),
 	}}
 	for _, item := range items {

@@ -25,7 +25,7 @@ func (h *AdminHandler) renderCollections(w http.ResponseWriter, r *http.Request,
 		h.renderError(w, r, err)
 		return
 	}
-	data := map[string]any{"PageTitle": "Collections - Flipbook", "Collections": collections}
+	data := map[string]any{"PageTitle": "Collections - Penninn Midlun", "Collections": collections}
 	for key, value := range overrides {
 		data[key] = value
 	}

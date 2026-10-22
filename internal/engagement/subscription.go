@@ -87,7 +87,7 @@ func (s *Service) Subscribe(ctx context.Context, input SubscribeInput) (*Subscri
 	unsubscribeURL := s.subscriptionURL("/subscriptions/unsubscribe", input.WorkspaceID, subscriber.Email)
 	workspaceName := strings.TrimSpace(workspace.Name)
 	if workspaceName == "" {
-		workspaceName = "Flipbook"
+		workspaceName = "Penninn Midlun"
 	}
 	message := Message{
 		To: subscriber.Email, Subject: "Confirm your subscription to " + workspaceName,

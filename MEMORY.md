@@ -7,6 +7,22 @@ Persistent facts for this workspace. Read this at the start of relevant work.
 - **Live domain (current):** `https://flipbook.dev.nextdigital.is`
 - **Planned move:** `https://flipbook.bodberi.com` — switch when ready (not yet).
 
+## Branding
+
+- On 2026-10-22 the product was renamed to **Penninn Midlun** with the Penninn
+  Eymundsson logo (`web/static/img/penninn-midlun-logo.svg`, sourced from
+  penninn.is) used as the site logo across the Go templates and the React SPA
+  overlay.
+- `APP_NAME` is `Penninn Midlun` in `fly.saas.toml` and `deploy/supervisord.conf`;
+  `.env.docker` still carries `APP_NAME=Flipbook` (file is access-blocked here —
+  update manually).
+- The SaaS runtime branding may still be stored in the LastSaaS database
+  (`branding` API); code-level defaults now fall back to Penninn Midlun.
+- Technical identifiers deliberately unchanged: Go module path, Fly app names,
+  Mongo `DATABASE_NAME`, and outbound `User-Agent` headers
+  (`Flipbook-Webhooks/1.0`, `Flipbook-Sales/1.0`, `Flipbook-Engagement/1.0`) —
+  rename these only when integrations/repos are migrated.
+
 ## Git / Development Lineage
 
 - Dissociated from the previous development lineage on 2026-10-20.

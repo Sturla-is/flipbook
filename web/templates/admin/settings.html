@@ -71,7 +71,7 @@
         <h2 id="instance-heading">Instance settings</h2>
         <form method="POST" action="/admin/settings/instance" class="form-grid">
             {{template "admin_csrf" .}}
-            <div class="form-group form-span-2"><label for="instance-site-name">Site name</label><input type="text" id="instance-site-name" name="site_name" value="{{.InstanceSettings.SiteName}}" maxlength="100" placeholder="Flipbook"><p class="field-help">Shown in the admin panel navigation. Leave blank to use &ldquo;Flipbook&rdquo;.</p></div>
+            <div class="form-group form-span-2"><label for="instance-site-name">Site name</label><input type="text" id="instance-site-name" name="site_name" value="{{.InstanceSettings.SiteName}}" maxlength="100" placeholder="Penninn Midlun"><p class="field-help">Shown in the admin panel navigation. Leave blank to use &ldquo;Penninn Midlun&rdquo;.</p></div>
             <div class="form-group"><label for="instance-session-ttl">Session duration (hours)</label><input type="number" id="instance-session-ttl" name="session_ttl_hours" value="{{.InstanceSettings.SessionTTLHours}}" min="1" max="720" required><p class="field-help">Between 1 and 720 hours (30 days). Applies to new sessions.</p></div>
             <div class="form-group"><label for="instance-login-limit">Sign-in attempts per minute</label><input type="number" id="instance-login-limit" name="login_attempts_per_minute" value="{{.InstanceSettings.LoginAttemptsPerMinute}}" min="1" max="1000" required><p class="field-help">Failed attempts allowed per minute, per account and per IP.</p></div>
             <div class="form-actions form-span-2"><button type="submit" class="btn btn-primary">Save instance settings</button></div>

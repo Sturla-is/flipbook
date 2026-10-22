@@ -111,7 +111,7 @@ func (h *AdminHandler) baseData(w http.ResponseWriter, r *http.Request, actor ad
 		}
 	}
 	data := map[string]any{
-		"PageTitle":   "Flipbook admin",
+		"PageTitle":   "Penninn Midlun admin",
 		"ActiveNav":   active,
 		"CSRFToken":   csrfToken,
 		"WorkspaceID": actor.WorkspaceID,

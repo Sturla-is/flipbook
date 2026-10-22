@@ -25,7 +25,7 @@ func (h *AdminHandler) renderWorkspace(w http.ResponseWriter, r *http.Request, a
 		return
 	}
 	data := map[string]any{
-		"PageTitle": "Workspace settings - Flipbook", "TeamSection": "workspace", "CurrentWorkspace": workspace,
+		"PageTitle": "Workspace settings - Penninn Midlun", "TeamSection": "workspace", "CurrentWorkspace": workspace,
 		"DefaultDomainString": joinAdminValues(workspace.Settings.DefaultEmbed.AllowedDomains),
 	}
 	for key, value := range overrides {

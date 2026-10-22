@@ -108,8 +108,10 @@ code { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; fo
 .logo {
     color: var(--ink); font-family: var(--font-display); font-size: 1.42rem; font-weight: 700;
     letter-spacing: -0.015em; text-decoration: none; white-space: nowrap;
+    display: inline-flex; align-items: center; gap: 10px;
 }
 .logo:hover { color: var(--ink); }
+.logo img { height: 30px; width: auto; display: block; }
 .logo-dot { color: var(--accent); }
 .workspace-label { color: var(--ink-3); font-size: 0.8rem; border-left: 1px solid var(--line-strong); padding-left: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 220px; }
 .nav-links { display: flex; align-items: center; justify-content: flex-end; gap: 2px; flex-wrap: wrap; }

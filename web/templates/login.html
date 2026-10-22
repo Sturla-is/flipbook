@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="robots" content="noindex,nofollow,noarchive">
-    <title>Sign in - Flipbook</title>
+    <title>Sign in - Penninn Midlun</title>
     <link rel="icon" type="image/svg+xml" href="/static/img/favicon.svg">
     <link rel="stylesheet" href="/static/css/style.css">
     <style>
@@ -26,11 +26,11 @@
     </style>
 </head>
 <body>
-    <nav class="navbar"><a href="/" class="logo">Flipbook</a></nav>
+    <nav class="navbar"><a href="/" class="logo"><img src="/static/img/penninn-midlun-logo.svg" alt="Penninn Midlun"></a></nav>
     <main class="login-wrapper">
         <div class="login-card">
             {{$mode := .Mode}}
-            <h1>{{if eq $mode "bootstrap"}}Set up Flipbook{{else if eq $mode "invitation"}}Accept invitation{{else if eq $mode "forgot"}}Reset password{{else if eq $mode "reset"}}Choose a new password{{else if eq $mode "change"}}Change password{{else}}Sign in{{end}}</h1>
+            <h1>{{if eq $mode "bootstrap"}}Set up Penninn Midlun{{else if eq $mode "invitation"}}Accept invitation{{else if eq $mode "forgot"}}Reset password{{else if eq $mode "reset"}}Choose a new password{{else if eq $mode "change"}}Change password{{else}}Sign in{{end}}</h1>
             <p class="subtitle">
                 {{if eq $mode "bootstrap"}}Create the initial administrator password. Setup is available only from this server.
                 {{else if eq $mode "invitation"}}Confirm your account to join the workspace.

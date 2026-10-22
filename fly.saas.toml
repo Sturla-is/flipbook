@@ -19,7 +19,7 @@ primary_region = "iad"
   FRONTEND_STATIC_DIR = "/dev/null"
   SERVER_PORT = "8091"
   FRONTEND_URL = "https://flipbook.dev.nextdigital.is"
-  APP_NAME = "Flipbook"
+  APP_NAME = "Penninn Midlun"
 
 [http_service]
   internal_port = 8080

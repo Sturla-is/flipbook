@@ -36,7 +36,7 @@ func TestCRMConnectorsUseMockedHTTP(t *testing.T) {
 			_, _ = w.Write([]byte(`{"records":[]}`))
 		case "/services/data/v60.0/sobjects/Lead/":
 			body, _ := io.ReadAll(r.Body)
-			if !strings.Contains(string(body), `"Company":"Flipbook"`) {
+			if !strings.Contains(string(body), `"Company":"Penninn Midlun"`) {
 				t.Errorf("Salesforce body missing required company: %s", body)
 			}
 			w.WriteHeader(http.StatusCreated)

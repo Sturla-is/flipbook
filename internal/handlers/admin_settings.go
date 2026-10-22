@@ -14,7 +14,7 @@ import (
 
 // settingSiteName is the admin-visible site name shown in the admin panel
 // navigation. It is stored in the settings collection and falls back to
-// "Flipbook" when unset.
+// "Penninn Midlun" when unset.
 const settingSiteName = "site_name"
 
 const (
@@ -72,7 +72,7 @@ func (h *AdminHandler) renderSettings(w http.ResponseWriter, r *http.Request, ac
 		sessionHours = maxSessionTTLHours
 	}
 	data := map[string]any{
-		"PageTitle":           "Settings - Flipbook",
+		"PageTitle":           "Settings - Penninn Midlun",
 		"TeamSection":         "settings",
 		"Members":             members,
 		"LegacyAdminPassword": legacyPasswordSet,

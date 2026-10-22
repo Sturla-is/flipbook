@@ -16,7 +16,7 @@
 <a class="skip-link" href="#main-content">Skip to main content</a>
 <nav class="navbar" aria-label="Administration">
     <div class="nav-brand-row">
-        <a href="/admin" class="logo" aria-label="Flipbook library">{{if .SiteName}}{{.SiteName}}{{else}}Flipbook{{end}}<span class="logo-dot" aria-hidden="true">.</span></a>
+        <a href="/admin" class="logo" aria-label="Penninn Midlun library"><img src="/static/img/penninn-midlun-logo.svg" alt="" aria-hidden="true"><span>{{if .SiteName}}{{.SiteName}}{{else}}Penninn Midlun{{end}}</span></a>
         {{if .Workspace}}<span class="workspace-label">{{.Workspace.Name}}</span>{{end}}
         <button type="button" class="nav-toggle" data-nav-toggle aria-expanded="false" aria-controls="admin-navigation">Menu</button>
     </div>
@@ -78,12 +78,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{block "title" .}}Flipbook{{end}}</title>
+    <title>{{block "title" .}}Penninn Midlun{{end}}</title>
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
     <nav class="navbar">
-        <a href="/admin" class="logo">Flipbook</a>
+        <a href="/admin" class="logo"><img src="/static/img/penninn-midlun-logo.svg" alt="Penninn Midlun"></a>
         <div class="nav-links">
             <a href="/admin">Dashboard</a>
             <a href="/admin/upload">Upload</a>

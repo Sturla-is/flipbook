@@ -45,7 +45,7 @@ func (h *AdminHandler) renderTeam(w http.ResponseWriter, r *http.Request, actor 
 		return
 	}
 	data := map[string]any{
-		"PageTitle": "Team and access - Flipbook", "TeamSection": "members", "Members": members,
+		"PageTitle": "Team and access - Penninn Midlun", "TeamSection": "members", "Members": members,
 		"WorkspaceOwnerID": workspace.OwnerID, "CurrentUserID": actor.UserID,
 	}
 	for key, value := range overrides {

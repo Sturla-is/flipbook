@@ -111,7 +111,7 @@ func (h *AdminHandler) Index(w http.ResponseWriter, r *http.Request) {
 		filters[key] = query.Get(key)
 	}
 	data := map[string]any{
-		"PageTitle":   "Library - Flipbook",
+		"PageTitle":   "Library - Penninn Midlun",
 		"Flipbooks":   flipbooks,
 		"ThumbMap":    thumbnails,
 		"Collections": collections,
@@ -205,7 +205,7 @@ func (h *AdminHandler) UploadForm(w http.ResponseWriter, r *http.Request) {
 
 func (h *AdminHandler) renderUpload(w http.ResponseWriter, r *http.Request, actor adminActor, status int, errorMessage string) {
 	data := map[string]any{
-		"PageTitle": "Upload publications - Flipbook",
+		"PageTitle": "Upload publications - Penninn Midlun",
 		"Formats":   strings.Join(converter.SupportedExtensions(), ", "),
 		"MaxFiles":  50,
 	}
