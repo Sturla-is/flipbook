@@ -26,9 +26,9 @@ Persistent facts for this workspace. Read this at the start of relevant work.
 ## Git / Development Lineage
 
 - Dissociated from the previous development lineage on 2026-10-20.
-- The old remote `origin` (`https://github.com/Sturla-is/flipbook.git`), its
-  remote-tracking refs, and upstream branch config were removed.
-- No upstream remote is configured. Local branch: `main`.
+- Working remote is `sturla` (`https://github.com/Sturla-is/flipbook.git`); push
+  `main` there. `origin` (`https://github.com/jonradoff/flipbook.git`) is the
+  original upstream author's repo — do not push to it. Local branch: `main`.
 - Deployment configs (`fly.toml`, `fly.saas.toml`) were repointed from the old
   `flipbook.metavert.io` domain to the current live domain.
 - Open follow-up (not done): the Go module path `github.com/metavert-io/flipbook`
