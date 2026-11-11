@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Sturla-is/flipbook/internal/database"
+	"github.com/Sturla-is/flipbook/internal/models"
 	gooidc "github.com/coreos/go-oidc/v3/oidc"
-	"github.com/metavert-io/flipbook/internal/database"
-	"github.com/metavert-io/flipbook/internal/models"
 	"golang.org/x/oauth2"
 )
 

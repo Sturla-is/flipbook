@@ -5,9 +5,9 @@ import (
 	"html/template"
 	"net/http"
 
+	"github.com/Sturla-is/flipbook/internal/converter"
+	"github.com/Sturla-is/flipbook/internal/models"
 	"github.com/go-chi/chi/v5"
-	"github.com/metavert-io/flipbook/internal/converter"
-	"github.com/metavert-io/flipbook/internal/models"
 )
 
 // linkEditorPage describes one page for the admin link hotspot editor: its

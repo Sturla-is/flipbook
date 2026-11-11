@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/metavert-io/flipbook/internal/config"
+	"github.com/Sturla-is/flipbook/internal/config"
 )
 
 func TestConverterOptionsApplyConversionConfig(t *testing.T) {

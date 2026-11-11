@@ -4,10 +4,10 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/Sturla-is/flipbook/internal/auth"
+	"github.com/Sturla-is/flipbook/internal/engagement"
+	"github.com/Sturla-is/flipbook/internal/models"
 	"github.com/go-chi/chi/v5"
-	"github.com/metavert-io/flipbook/internal/auth"
-	"github.com/metavert-io/flipbook/internal/engagement"
-	"github.com/metavert-io/flipbook/internal/models"
 )
 
 type adminLeadIntegrationsView struct {

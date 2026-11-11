@@ -14,13 +14,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Sturla-is/flipbook/internal/analytics"
+	"github.com/Sturla-is/flipbook/internal/auth"
+	"github.com/Sturla-is/flipbook/internal/config"
+	"github.com/Sturla-is/flipbook/internal/database"
+	"github.com/Sturla-is/flipbook/internal/models"
+	"github.com/Sturla-is/flipbook/internal/publishing"
 	"github.com/go-chi/chi/v5"
-	"github.com/metavert-io/flipbook/internal/analytics"
-	"github.com/metavert-io/flipbook/internal/auth"
-	"github.com/metavert-io/flipbook/internal/config"
-	"github.com/metavert-io/flipbook/internal/database"
-	"github.com/metavert-io/flipbook/internal/models"
-	"github.com/metavert-io/flipbook/internal/publishing"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 

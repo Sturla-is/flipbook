@@ -11,10 +11,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Sturla-is/flipbook/internal/database"
+	"github.com/Sturla-is/flipbook/internal/models"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
-	"github.com/metavert-io/flipbook/internal/database"
-	"github.com/metavert-io/flipbook/internal/models"
 )
 
 func (h *APIHandler) ListWorkspaces(w http.ResponseWriter, r *http.Request) {

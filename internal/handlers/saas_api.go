@@ -10,14 +10,14 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/Sturla-is/flipbook/internal/database"
+	"github.com/Sturla-is/flipbook/internal/models"
+	"github.com/Sturla-is/flipbook/internal/multipartform"
+	"github.com/Sturla-is/flipbook/internal/saas"
+	"github.com/Sturla-is/flipbook/internal/storage"
+	"github.com/Sturla-is/flipbook/internal/worker"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
-	"github.com/metavert-io/flipbook/internal/database"
-	"github.com/metavert-io/flipbook/internal/models"
-	"github.com/metavert-io/flipbook/internal/multipartform"
-	"github.com/metavert-io/flipbook/internal/saas"
-	"github.com/metavert-io/flipbook/internal/storage"
-	"github.com/metavert-io/flipbook/internal/worker"
 )
 
 // SaaSAPIHandler handles tenant-scoped flipbook operations for SaaS mode.

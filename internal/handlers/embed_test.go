@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/metavert-io/flipbook/internal/database"
-	"github.com/metavert-io/flipbook/internal/models"
-	"github.com/metavert-io/flipbook/internal/publishing"
+	"github.com/Sturla-is/flipbook/internal/database"
+	"github.com/Sturla-is/flipbook/internal/models"
+	"github.com/Sturla-is/flipbook/internal/publishing"
 )
 
 func embedErrorTemplates(t *testing.T) *template.Template {

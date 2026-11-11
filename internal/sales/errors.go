@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/metavert-io/flipbook/internal/database"
+	"github.com/Sturla-is/flipbook/internal/database"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 

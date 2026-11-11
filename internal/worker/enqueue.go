@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/metavert-io/flipbook/internal/models"
+	"github.com/Sturla-is/flipbook/internal/models"
 )
 
 func (w *Worker) Enqueue(job Job) error {

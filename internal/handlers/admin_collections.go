@@ -5,8 +5,8 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/Sturla-is/flipbook/internal/models"
 	"github.com/go-chi/chi/v5"
-	"github.com/metavert-io/flipbook/internal/models"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 

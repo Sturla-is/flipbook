@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/metavert-io/flipbook/internal/converter"
-	"github.com/metavert-io/flipbook/internal/models"
+	"github.com/Sturla-is/flipbook/internal/converter"
+	"github.com/Sturla-is/flipbook/internal/models"
 )
 
 type statusUpdate struct {

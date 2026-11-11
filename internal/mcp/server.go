@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/metavert-io/flipbook/internal/config"
+	"github.com/Sturla-is/flipbook/internal/config"
 )
 
 type request struct {

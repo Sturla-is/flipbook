@@ -25,16 +25,22 @@ Persistent facts for this workspace. Read this at the start of relevant work.
 
 ## Git / Development Lineage
 
-- Dissociated from the previous development lineage on 2026-10-20.
-- Working remote is `sturla` (`https://github.com/Sturla-is/flipbook.git`); push
-  `main` there. `origin` (`https://github.com/jonradoff/flipbook.git`) is the
-  original upstream author's repo — do not push to it. Local branch: `main`.
-- Deployment configs (`fly.toml`, `fly.saas.toml`) were repointed from the old
-  `flipbook.metavert.io` domain to the current live domain.
-- Open follow-up (not done): the Go module path `github.com/metavert-io/flipbook`
-  and README references to `metavert-io` still carry the old identity; rename
-  when the new repository location is decided.
-- Still carrying the old identity (rename when new locations are known):
-  `README.md` clone URL (`github.com/metavert-io/flipbook.git`),
-  `scripts/setup-saas.sh` REPO (`github.com/metavert-io/lastsaas.git`), and the
-  Fly app names `flipbook-metavert` in `fly.toml` / `fly.saas.toml`.
+- Dissociated from the previous development lineage on 2026-10-20. The only
+  repository is `https://github.com/Sturla-is/flipbook`; push there. Local
+  clones must not keep a remote for `jonradoff/flipbook` or
+  `metavert-io/flipbook`.
+- Go module path renamed to `github.com/Sturla-is/flipbook` on 2026-11-11, along
+  with the README clone URL and the landing-page self-hosting link.
+- On GitHub, `Sturla-is/flipbook` was created as a fork of
+  `metavert-io/flipbook`, so GitHub (and tools that open PRs) default new pull
+  requests to the upstream repo. Fix: repo Settings → Danger Zone → "Leave fork
+  network". Until that is done, check the base repo of every new PR.
+- Deployment configs (`fly.toml`, `fly.saas.toml`) were repointed to the
+  current live domain on 2026-10-20.
+- Still carrying the old identity (each needs an action outside the code):
+  `scripts/setup-saas.sh` clones LastSaaS from `github.com/metavert-io/lastsaas.git`
+  (needs a copy under our own account); Fly app names `flipbook-metavert` in
+  `fly.toml` / `fly.saas.toml` (Fly apps can't be renamed: needs a new app plus
+  volume move); landing-page Terms/Privacy links point at metavert.io (need our
+  own policy URLs). `LICENSE` keeps "Copyright (c) 2026 Metavert LLC" because the
+  MIT license requires the original notice in all copies.

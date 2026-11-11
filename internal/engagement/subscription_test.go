@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/metavert-io/flipbook/internal/models"
+	"github.com/Sturla-is/flipbook/internal/models"
 )
 
 func TestSubscriptionDoubleOptInNotificationAndUnsubscribe(t *testing.T) {

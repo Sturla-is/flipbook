@@ -8,10 +8,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Sturla-is/flipbook/internal/database"
+	"github.com/Sturla-is/flipbook/internal/models"
+	"github.com/Sturla-is/flipbook/internal/publishing"
 	"github.com/go-chi/chi/v5"
-	"github.com/metavert-io/flipbook/internal/database"
-	"github.com/metavert-io/flipbook/internal/models"
-	"github.com/metavert-io/flipbook/internal/publishing"
 	"golang.org/x/crypto/bcrypt"
 )
 

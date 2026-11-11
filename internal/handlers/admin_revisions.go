@@ -13,15 +13,15 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Sturla-is/flipbook/internal/converter"
+	"github.com/Sturla-is/flipbook/internal/database"
+	"github.com/Sturla-is/flipbook/internal/models"
+	"github.com/Sturla-is/flipbook/internal/multipartform"
+	"github.com/Sturla-is/flipbook/internal/publishing"
+	"github.com/Sturla-is/flipbook/internal/storage"
+	"github.com/Sturla-is/flipbook/internal/worker"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
-	"github.com/metavert-io/flipbook/internal/converter"
-	"github.com/metavert-io/flipbook/internal/database"
-	"github.com/metavert-io/flipbook/internal/models"
-	"github.com/metavert-io/flipbook/internal/multipartform"
-	"github.com/metavert-io/flipbook/internal/publishing"
-	"github.com/metavert-io/flipbook/internal/storage"
-	"github.com/metavert-io/flipbook/internal/worker"
 )
 
 func (h *AdminHandler) Replace(w http.ResponseWriter, r *http.Request) {

@@ -1,4 +1,4 @@
-module github.com/metavert-io/flipbook
+module github.com/Sturla-is/flipbook
 
 go 1.25.5
 

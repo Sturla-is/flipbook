@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/metavert-io/flipbook/internal/analytics"
+	"github.com/Sturla-is/flipbook/internal/analytics"
 )
 
 func TestAnalyticsTemplateRenders(t *testing.T) {

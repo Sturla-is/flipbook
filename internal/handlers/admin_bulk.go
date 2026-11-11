@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/metavert-io/flipbook/internal/models"
-	"github.com/metavert-io/flipbook/internal/publishing"
-	"github.com/metavert-io/flipbook/internal/worker"
+	"github.com/Sturla-is/flipbook/internal/models"
+	"github.com/Sturla-is/flipbook/internal/publishing"
+	"github.com/Sturla-is/flipbook/internal/worker"
 )
 
 type adminBulkResult struct {

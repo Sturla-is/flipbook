@@ -12,11 +12,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Sturla-is/flipbook/internal/auth"
+	"github.com/Sturla-is/flipbook/internal/database"
+	"github.com/Sturla-is/flipbook/internal/handlers"
+	"github.com/Sturla-is/flipbook/internal/models"
 	"github.com/go-chi/chi/v5"
-	"github.com/metavert-io/flipbook/internal/auth"
-	"github.com/metavert-io/flipbook/internal/database"
-	"github.com/metavert-io/flipbook/internal/handlers"
-	"github.com/metavert-io/flipbook/internal/models"
 )
 
 type adminRouteAuthStore struct {

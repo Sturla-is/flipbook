@@ -16,8 +16,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/metavert-io/flipbook/internal/config"
-	"github.com/metavert-io/flipbook/internal/models"
+	"github.com/Sturla-is/flipbook/internal/config"
+	"github.com/Sturla-is/flipbook/internal/models"
 )
 
 const (

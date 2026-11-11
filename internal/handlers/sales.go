@@ -8,12 +8,12 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/Sturla-is/flipbook/internal/auth"
+	"github.com/Sturla-is/flipbook/internal/config"
+	"github.com/Sturla-is/flipbook/internal/models"
+	"github.com/Sturla-is/flipbook/internal/publishing"
+	"github.com/Sturla-is/flipbook/internal/sales"
 	"github.com/go-chi/chi/v5"
-	"github.com/metavert-io/flipbook/internal/auth"
-	"github.com/metavert-io/flipbook/internal/config"
-	"github.com/metavert-io/flipbook/internal/models"
-	"github.com/metavert-io/flipbook/internal/publishing"
-	"github.com/metavert-io/flipbook/internal/sales"
 )
 
 type SalesHandler struct {

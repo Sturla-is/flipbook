@@ -9,7 +9,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/metavert-io/flipbook/internal/multipartform"
+	"github.com/Sturla-is/flipbook/internal/multipartform"
 )
 
 // csrfSpoolSize is above every maxMemory the CSRF check has used for

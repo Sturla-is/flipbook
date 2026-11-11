@@ -55,7 +55,7 @@ sudo apt install poppler-utils libreoffice-impress
 
 ```bash
 # Clone the repo
-git clone https://github.com/metavert-io/flipbook.git
+git clone https://github.com/Sturla-is/flipbook.git
 cd flipbook
 
 # Copy and edit config
@@ -233,4 +233,4 @@ flipbook/
 
 ## License
 
-[MIT](LICENSE) - Copyright (c) 2026 Metavert LLC
+[MIT](LICENSE)

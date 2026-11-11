@@ -12,11 +12,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Sturla-is/flipbook/internal/auth"
+	"github.com/Sturla-is/flipbook/internal/database"
+	"github.com/Sturla-is/flipbook/internal/models"
+	"github.com/Sturla-is/flipbook/internal/storage"
 	"github.com/go-chi/chi/v5"
-	"github.com/metavert-io/flipbook/internal/auth"
-	"github.com/metavert-io/flipbook/internal/database"
-	"github.com/metavert-io/flipbook/internal/models"
-	"github.com/metavert-io/flipbook/internal/storage"
 )
 
 // These tests send uploads that spool to disk through the middleware that

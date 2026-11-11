@@ -64,7 +64,7 @@ export default function LandingPage() {
               Penninn Midlun is free and open source. Run it on your own infrastructure with full control over your data.
             </p>
             <a
-              href="https://metavert.io/flipbook"
+              href="https://github.com/Sturla-is/flipbook"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 text-primary-400 hover:text-primary-300 font-medium transition-colors"

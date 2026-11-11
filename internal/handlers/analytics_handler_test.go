@@ -9,11 +9,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Sturla-is/flipbook/internal/analytics"
+	"github.com/Sturla-is/flipbook/internal/config"
+	"github.com/Sturla-is/flipbook/internal/database"
+	"github.com/Sturla-is/flipbook/internal/models"
 	"github.com/go-chi/chi/v5"
-	"github.com/metavert-io/flipbook/internal/analytics"
-	"github.com/metavert-io/flipbook/internal/config"
-	"github.com/metavert-io/flipbook/internal/database"
-	"github.com/metavert-io/flipbook/internal/models"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 

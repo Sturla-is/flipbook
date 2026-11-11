@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Sturla-is/flipbook/internal/models"
 	"github.com/google/uuid"
-	"github.com/metavert-io/flipbook/internal/models"
 )
 
 func validWebhookEvent(event string, wildcard bool) bool {

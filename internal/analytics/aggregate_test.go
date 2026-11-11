@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/metavert-io/flipbook/internal/models"
+	"github.com/Sturla-is/flipbook/internal/models"
 )
 
 func TestBuildReportAggregation(t *testing.T) {

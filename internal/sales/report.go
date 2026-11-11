@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/metavert-io/flipbook/internal/database"
-	"github.com/metavert-io/flipbook/internal/models"
+	"github.com/Sturla-is/flipbook/internal/database"
+	"github.com/Sturla-is/flipbook/internal/models"
 )
 
 func (s *Service) Report(ctx context.Context, filter ReportFilter) (*Report, error) {

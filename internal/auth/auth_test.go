@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/metavert-io/flipbook/internal/models"
+	"github.com/Sturla-is/flipbook/internal/models"
 )
 
 const testPassword = "correct-horse-battery"

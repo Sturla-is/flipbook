@@ -19,10 +19,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Sturla-is/flipbook/internal/database"
+	"github.com/Sturla-is/flipbook/internal/models"
+	"github.com/Sturla-is/flipbook/internal/multipartform"
 	"github.com/go-chi/chi/v5"
-	"github.com/metavert-io/flipbook/internal/database"
-	"github.com/metavert-io/flipbook/internal/models"
-	"github.com/metavert-io/flipbook/internal/multipartform"
 )
 
 func (a *Auth) SecurityHeaders(next http.Handler) http.Handler {

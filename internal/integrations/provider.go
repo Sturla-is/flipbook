@@ -14,7 +14,7 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/metavert-io/flipbook/internal/models"
+	"github.com/Sturla-is/flipbook/internal/models"
 )
 
 const maxProviderResponseBytes = 1 << 20

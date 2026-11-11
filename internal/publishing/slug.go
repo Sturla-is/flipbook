@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/metavert-io/flipbook/internal/models"
+	"github.com/Sturla-is/flipbook/internal/models"
 )
 
 func (s *Service) ChangeSlug(ctx context.Context, actor Actor, workspaceID, flipbookID, slug string) (string, error) {

@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/metavert-io/flipbook/internal/models"
+	"github.com/Sturla-is/flipbook/internal/models"
 	"go.mongodb.org/mongo-driver/v2/bson"
 )
 

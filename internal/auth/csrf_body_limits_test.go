@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/metavert-io/flipbook/internal/models"
+	"github.com/Sturla-is/flipbook/internal/models"
 )
 
 // oversizedBody is larger than any limit under test; the 185 MB matches the

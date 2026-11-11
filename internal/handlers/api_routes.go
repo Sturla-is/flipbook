@@ -3,8 +3,8 @@ package handlers
 import (
 	"net/http"
 
+	"github.com/Sturla-is/flipbook/internal/models"
 	"github.com/go-chi/chi/v5"
-	"github.com/metavert-io/flipbook/internal/models"
 )
 
 // RegisterRoutes mounts the complete versioned API. Existing main.go can keep

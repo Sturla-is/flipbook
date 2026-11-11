@@ -4,10 +4,10 @@ import (
 	"html/template"
 	"net/http"
 
-	"github.com/metavert-io/flipbook/internal/database"
-	"github.com/metavert-io/flipbook/internal/publishing"
-	"github.com/metavert-io/flipbook/internal/saas"
-	"github.com/metavert-io/flipbook/internal/storage"
+	"github.com/Sturla-is/flipbook/internal/database"
+	"github.com/Sturla-is/flipbook/internal/publishing"
+	"github.com/Sturla-is/flipbook/internal/saas"
+	"github.com/Sturla-is/flipbook/internal/storage"
 )
 
 type EmbedHandler struct {

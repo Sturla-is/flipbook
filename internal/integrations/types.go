@@ -8,10 +8,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/metavert-io/flipbook/internal/config"
-	"github.com/metavert-io/flipbook/internal/models"
-	"github.com/metavert-io/flipbook/internal/storage"
-	"github.com/metavert-io/flipbook/internal/worker"
+	"github.com/Sturla-is/flipbook/internal/config"
+	"github.com/Sturla-is/flipbook/internal/models"
+	"github.com/Sturla-is/flipbook/internal/storage"
+	"github.com/Sturla-is/flipbook/internal/worker"
 )
 
 const (

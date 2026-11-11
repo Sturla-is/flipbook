@@ -15,13 +15,13 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Sturla-is/flipbook/internal/auth"
+	"github.com/Sturla-is/flipbook/internal/database"
+	"github.com/Sturla-is/flipbook/internal/distribution"
+	"github.com/Sturla-is/flipbook/internal/models"
+	"github.com/Sturla-is/flipbook/internal/publishing"
+	"github.com/Sturla-is/flipbook/internal/storage"
 	"github.com/go-chi/chi/v5"
-	"github.com/metavert-io/flipbook/internal/auth"
-	"github.com/metavert-io/flipbook/internal/database"
-	"github.com/metavert-io/flipbook/internal/distribution"
-	"github.com/metavert-io/flipbook/internal/models"
-	"github.com/metavert-io/flipbook/internal/publishing"
-	"github.com/metavert-io/flipbook/internal/storage"
 )
 
 func readerService(services []*publishing.Service) *publishing.Service {

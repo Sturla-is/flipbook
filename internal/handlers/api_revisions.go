@@ -6,13 +6,13 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/Sturla-is/flipbook/internal/converter"
+	"github.com/Sturla-is/flipbook/internal/database"
+	"github.com/Sturla-is/flipbook/internal/models"
+	"github.com/Sturla-is/flipbook/internal/multipartform"
+	"github.com/Sturla-is/flipbook/internal/storage"
+	"github.com/Sturla-is/flipbook/internal/worker"
 	"github.com/go-chi/chi/v5"
-	"github.com/metavert-io/flipbook/internal/converter"
-	"github.com/metavert-io/flipbook/internal/database"
-	"github.com/metavert-io/flipbook/internal/models"
-	"github.com/metavert-io/flipbook/internal/multipartform"
-	"github.com/metavert-io/flipbook/internal/storage"
-	"github.com/metavert-io/flipbook/internal/worker"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 

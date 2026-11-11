@@ -10,8 +10,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/metavert-io/flipbook/internal/models"
-	"github.com/metavert-io/flipbook/internal/publishing"
+	"github.com/Sturla-is/flipbook/internal/models"
+	"github.com/Sturla-is/flipbook/internal/publishing"
 )
 
 var (

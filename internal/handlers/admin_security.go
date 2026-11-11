@@ -5,9 +5,9 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/Sturla-is/flipbook/internal/database"
+	"github.com/Sturla-is/flipbook/internal/models"
 	"github.com/go-chi/chi/v5"
-	"github.com/metavert-io/flipbook/internal/database"
-	"github.com/metavert-io/flipbook/internal/models"
 )
 
 func (h *AdminHandler) Security(w http.ResponseWriter, r *http.Request) {

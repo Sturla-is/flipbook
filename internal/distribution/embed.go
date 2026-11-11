@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/metavert-io/flipbook/internal/models"
+	"github.com/Sturla-is/flipbook/internal/models"
 )
 
 type EmbedOptions struct {

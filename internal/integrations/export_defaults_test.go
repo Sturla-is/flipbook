@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/metavert-io/flipbook/internal/models"
+	"github.com/Sturla-is/flipbook/internal/models"
 )
 
 // canvaExportMock serves a Canva export that completes on the first status

@@ -14,11 +14,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Sturla-is/flipbook/internal/database"
+	"github.com/Sturla-is/flipbook/internal/models"
+	"github.com/Sturla-is/flipbook/internal/storage"
+	"github.com/Sturla-is/flipbook/internal/worker"
 	"github.com/google/uuid"
-	"github.com/metavert-io/flipbook/internal/database"
-	"github.com/metavert-io/flipbook/internal/models"
-	"github.com/metavert-io/flipbook/internal/storage"
-	"github.com/metavert-io/flipbook/internal/worker"
 )
 
 const (

@@ -14,9 +14,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/metavert-io/flipbook/internal/converter"
-	"github.com/metavert-io/flipbook/internal/models"
-	"github.com/metavert-io/flipbook/internal/storage"
+	"github.com/Sturla-is/flipbook/internal/converter"
+	"github.com/Sturla-is/flipbook/internal/models"
+	"github.com/Sturla-is/flipbook/internal/storage"
 )
 
 func writeConversionFixture(sourcePath, outputDir string) (*converter.Result, error) {

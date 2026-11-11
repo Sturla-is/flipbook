@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/metavert-io/flipbook/internal/models"
+	"github.com/Sturla-is/flipbook/internal/models"
 )
 
 type adobeRendition struct {

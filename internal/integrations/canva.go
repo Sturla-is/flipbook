@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/metavert-io/flipbook/internal/models"
+	"github.com/Sturla-is/flipbook/internal/models"
 )
 
 type canvaExportResponse struct {

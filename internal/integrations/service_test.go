@@ -13,8 +13,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/metavert-io/flipbook/internal/models"
-	"github.com/metavert-io/flipbook/internal/worker"
+	"github.com/Sturla-is/flipbook/internal/models"
+	"github.com/Sturla-is/flipbook/internal/worker"
 )
 
 func TestTokenCipherRoundTripAndContextBinding(t *testing.T) {
