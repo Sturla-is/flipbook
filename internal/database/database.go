@@ -129,7 +129,7 @@ func (d *DB) Database() *mongo.Database {
 }
 
 // Ping verifies the driver can reach a MongoDB primary. Used by the /readyz
-// readiness probe so Fly can recycle a machine whose driver topology has
+// readiness probe so the platform can restart a container whose driver topology has
 // wedged into ReplicaSetNoPrimary (see the 2026-07 outage) instead of letting
 // it serve 30s-timeout errors indefinitely.
 func (d *DB) Ping(ctx context.Context) error {

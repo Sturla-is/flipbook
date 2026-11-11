@@ -12,7 +12,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 LASTSAAS_DIR="lastsaas"
-REPO="https://github.com/metavert-io/lastsaas.git"
+REPO="https://github.com/Sturla-is/lastsaas.git"
 BRANCH="master"
 
 if [ "${1:-}" = "--clean" ]; then

@@ -1,6 +1,6 @@
 # Caddyfile — Reverse proxy for flipbook SaaS mode
 #
-# Port 8080 is the external port (Fly.io health checks hit this).
+# Port 8080 is the external port (platform health checks hit this).
 # Flipbook backend runs on :8090, LastSaaS backend runs on :8091.
 #
 # Routing:

@@ -357,8 +357,8 @@ func runServer() {
 		http.ServeFile(rw, req, filepath.Join(cfg.DataDir, "flipbooks", id, "revisions", rev, "thumbs", fname))
 	})
 
-	// Readiness probe: verifies a MongoDB primary is reachable so Fly's health
-	// check can recycle a machine whose driver has wedged (unlike /health, which
+	// Readiness probe: verifies a MongoDB primary is reachable so the platform's
+	// health check can restart a container whose driver has wedged (unlike /health, which
 	// is a static liveness check). Fails fast (3s) rather than the 30s default.
 	r.Get("/readyz", func(rw http.ResponseWriter, req *http.Request) {
 		ctx, cancel := context.WithTimeout(req.Context(), 3*time.Second)
@@ -432,7 +432,7 @@ func runServer() {
 
 	// Graceful shutdown. Workers are cancelled first so in-flight conversions
 	// stop; HTTP then drains with a deadline so a hung connection can't block
-	// shutdown forever (Fly escalates to SIGKILL, but we exit cleanly first).
+	// shutdown forever (the platform escalates to SIGKILL, but we exit cleanly first).
 	go func() {
 		sigCh := make(chan os.Signal, 1)
 		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)

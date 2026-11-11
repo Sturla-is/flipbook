@@ -203,24 +203,6 @@ export default function LandingPage() {
               Penninn Eymundsson
             </a>
           </p>
-          <div className="flex items-center gap-6 text-sm text-dark-500">
-            <a
-              href="https://metavert.io/terms-of-service"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-dark-300 transition-colors"
-            >
-              Terms of Service
-            </a>
-            <a
-              href="https://metavert.io/privacy-policy"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-dark-300 transition-colors"
-            >
-              Privacy Policy
-            </a>
-          </div>
         </div>
       </footer>
     </div>
