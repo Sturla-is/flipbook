@@ -24,6 +24,7 @@ func (d *DB) Migrate(ctx context.Context) error {
 	}{
 		{"001_foundation", d.migrateFoundation},
 		{"002_embed_defaults", d.migrateEmbedDefaults},
+		{"003_embed_presentation_defaults", d.migrateEmbedPresentationDefaults},
 	}
 	for _, migration := range migrations {
 		if err := d.applyMigration(ctx, migration.version, migration.apply); err != nil {
@@ -67,17 +68,18 @@ func (d *DB) migrateEmbedDefaults(ctx context.Context) error {
 			bson.M{prefix + "allowed_domains.0": bson.M{"$exists": false}},
 		}}
 	}
-	defaults := models.DefaultEmbedSettings()
+	// Literal values, not models.DefaultEmbedSettings(): a migration must write
+	// the same thing whenever it runs. 003 moves these to the current defaults.
 	enable := func(prefix string) bson.M {
 		return bson.M{
-			prefix + "enabled":      defaults.Enabled,
-			prefix + "show_toolbar": defaults.ShowToolbar,
-			prefix + "show_search":  defaults.ShowSearch,
+			prefix + "enabled":      true,
+			prefix + "show_toolbar": true,
+			prefix + "show_search":  true,
 		}
 	}
 
 	workspaceSet := enable("settings.embed.")
-	workspaceSet["settings.embed.start_page"] = defaults.StartPage
+	workspaceSet["settings.embed.start_page"] = 1
 	workspaces, err := d.workspaces.UpdateMany(ctx, unconfigured("settings.embed."), bson.M{"$set": workspaceSet})
 	if err != nil {
 		return fmt.Errorf("workspace embed defaults: %w", err)
@@ -88,6 +90,31 @@ func (d *DB) migrateEmbedDefaults(ctx context.Context) error {
 	}
 	log.Printf("Migration 002_embed_defaults: enabled embedding on %d workspace(s) and %d flipbook(s) that never configured it",
 		workspaces.ModifiedCount, flipbooks.ModifiedCount)
+	return nil
+}
+
+// migrateEmbedPresentationDefaults moves workspace embed defaults that still
+// carry the original presentation (toolbar and search on, no background) to
+// the current one: toolbar and search off on a white background. A workspace
+// where any of the three was changed is left alone. Only the workspace default
+// changes, so publications uploaded from now on start this way; existing
+// publications keep the embed settings they were saved with.
+func (d *DB) migrateEmbedPresentationDefaults(ctx context.Context) error {
+	filter := bson.M{
+		"settings.embed.show_toolbar": true,
+		"settings.embed.show_search":  true,
+		"settings.embed.background":   bson.M{"$in": bson.A{nil, ""}},
+	}
+	result, err := d.workspaces.UpdateMany(ctx, filter, bson.M{"$set": bson.M{
+		"settings.embed.show_toolbar": false,
+		"settings.embed.show_search":  false,
+		"settings.embed.background":   "#FFFFFF",
+	}})
+	if err != nil {
+		return fmt.Errorf("workspace embed presentation defaults: %w", err)
+	}
+	log.Printf("Migration 003_embed_presentation_defaults: moved %d workspace embed default(s) to no toolbar, no search, white background",
+		result.ModifiedCount)
 	return nil
 }
 

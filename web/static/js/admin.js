@@ -854,8 +854,8 @@ document.documentElement.classList.add('js');
         var preview = document.querySelector('[data-embed-preview]');
         var previewTimer = null;
         function values() {
-            var width = Math.max(200, Math.min(4000, Number(byId('embed-width').value) || 800));
-            var height = Math.max(200, Math.min(4000, Number(byId('embed-height').value) || 600));
+            var width = Math.max(200, Math.min(4000, Number(byId('embed-width').value) || 1200));
+            var height = Math.max(200, Math.min(4000, Number(byId('embed-height').value) || 800));
             var aspect = byId('embed-aspect').value;
             if (aspect !== 'custom') {
                 var parts = aspect.split(':').map(Number);

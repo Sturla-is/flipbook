@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/metavert-io/flipbook/internal/models"
 )
 
 type adminInputError struct {
@@ -80,6 +82,15 @@ func parseAdminInt(value, field string, minimum, maximum int) (int, error) {
 		return 0, adminInputf("%s must be between %d and %d.", field, minimum, maximum)
 	}
 	return parsed, nil
+}
+
+// parseAdminEmbedDimension reads a saved embed iframe dimension. Blank stores
+// zero, which renders as the default size.
+func parseAdminEmbedDimension(value, field string) (int, error) {
+	if strings.TrimSpace(value) == "" {
+		return 0, nil
+	}
+	return parseAdminInt(value, field, models.MinEmbedDimension, models.MaxEmbedDimension)
 }
 
 func parseAdminTime(value, field string) (*time.Time, error) {

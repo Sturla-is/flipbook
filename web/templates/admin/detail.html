@@ -66,19 +66,38 @@
 
     <section class="panel" aria-labelledby="embed-config-heading">
         <h2 id="embed-config-heading">Embed code configurator</h2>
-        <p class="field-help">Size and aspect options change only the generated iframe. Save reader behavior under Publication settings → Embed behavior below.</p>
-        {{if not .Flipbook.Embed.Enabled}}<p class="flash flash-warning" role="status">Public embedding is off for this publication. The preview below works only because you are signed in; on other sites this embed code shows "Embedding is disabled". Turn on <strong>Allow public embedding</strong> under Publication settings → Embed behavior.</p>{{end}}
+        <p class="field-help">Width and height are saved with this publication and reloaded here next time. Aspect, responsive, and start-page options change only the generated iframe. Reader behavior is under Embed behavior below.</p>
+        {{if not .Flipbook.Embed.Enabled}}<p class="flash flash-warning" role="status">Public embedding is off for this publication. The preview below works only because you are signed in; on other sites this embed code shows "Embedding is disabled". Turn on <strong>Allow public embedding</strong> under Embed behavior below.</p>{{end}}
         <form id="embed-configurator" data-embed-config data-base-url="{{.BaseURL}}" data-slug="{{.Flipbook.Slug}}" class="form-grid">
-            <div class="form-group"><label for="embed-width">Width (pixels)</label><input type="number" id="embed-width" value="800" min="200" max="4000"></div>
-            <div class="form-group"><label for="embed-height">Height (pixels)</label><input type="number" id="embed-height" value="600" min="200" max="4000"></div>
+            <div class="form-group"><label for="embed-width">Width (pixels)</label><input type="number" id="embed-width" name="embed_width" form="publication-settings" value="{{.Flipbook.Embed.FrameWidth}}" min="200" max="4000" placeholder="1200"></div>
+            <div class="form-group"><label for="embed-height">Height (pixels)</label><input type="number" id="embed-height" name="embed_height" form="publication-settings" value="{{.Flipbook.Embed.FrameHeight}}" min="200" max="4000" placeholder="800"></div>
             <div class="form-group"><label for="embed-aspect">Aspect ratio</label><select id="embed-aspect"><option value="custom">Custom</option><option value="16:9">16:9</option><option value="4:3">4:3</option><option value="3:2">3:2</option></select></div>
             <label class="checkbox-label"><input type="checkbox" id="embed-responsive" checked> Responsive width</label>
             <label class="checkbox-label"><input type="checkbox" id="embed-page-enabled"> Include start page ({{.Flipbook.Embed.StartPage}})</label>
+            <div class="form-actions"><button type="submit" form="publication-settings" class="btn btn-primary">Save size</button></div>
         </form>
         <div class="form-group"><label for="embed-code">Embed code</label><div class="embed-code"><textarea readonly id="embed-code" rows="4" data-embed-output>{{.EmbedCode}}</textarea><button type="button" class="btn" data-copy-target="embed-code">Copy</button></div></div>
         <div class="embed-preview" id="embed-preview" data-embed-preview aria-label="Embed preview"></div>
         {{if and .CanEdit (eq .Flipbook.Status "ready")}}<div class="form-actions"><a href="/admin/flipbooks/{{.Flipbook.ID}}/links" class="btn">Edit links</a><p class="field-help">Draw, move, and style clickable link hotspots over the pages, or import links embedded in the PDF.</p></div>{{end}}
     </section>
+
+    <details class="panel settings-section" id="embed-behavior" open>
+        <summary>Embed behavior</summary>
+        <div class="settings-body form-grid">
+            <fieldset class="form-group form-span-2"><legend>Embed capabilities</legend>
+                <label class="checkbox-label"><input type="checkbox" name="embed_enabled" form="publication-settings" {{if .Flipbook.Embed.Enabled}}checked{{end}}> Allow public embedding</label>
+                <label class="checkbox-label"><input type="checkbox" name="embed_toolbar" form="publication-settings" {{if .Flipbook.Embed.ShowToolbar}}checked{{end}}> Show toolbar</label>
+                <label class="checkbox-label"><input type="checkbox" name="embed_search" form="publication-settings" {{if .Flipbook.Embed.ShowSearch}}checked{{end}}> Show search</label>
+                <label class="checkbox-label"><input type="checkbox" name="embed_share" form="publication-settings" {{if .Flipbook.Embed.ShowShare}}checked{{end}}> Show share</label>
+                <label class="checkbox-label"><input type="checkbox" name="embed_download" form="publication-settings" {{if .Flipbook.Embed.ShowDownload}}checked{{end}}> Show download</label>
+            </fieldset>
+            <div class="form-group form-span-2"><label for="embed-domains">Allowed frame-ancestor domains</label><textarea id="embed-domains" name="embed_domains" form="publication-settings" rows="3" placeholder="example.com, https://intranet.example.com">{{.AllowedDomainString}}</textarea><p class="field-help">Leave blank to allow any frame ancestor. Use a comma-separated allowlist to restrict embedding. A bare domain such as example.com also covers www.example.com; use *.example.com for every subdomain.</p></div>
+            <div class="form-group"><label for="embed-start-page">Start page</label><input type="number" id="embed-start-page" name="embed_start_page" form="publication-settings" value="{{.Flipbook.Embed.StartPage}}" min="1" {{if .Flipbook.PageCount}}max="{{.Flipbook.PageCount}}"{{end}}></div>
+            <div class="form-group"><label for="embed-reading-mode">Reading mode</label><select id="embed-reading-mode" name="embed_reading_mode" form="publication-settings">{{$mode := .Flipbook.Embed.ReadingMode}}<option value="" {{if eq $mode ""}}selected{{end}}>Viewer default</option><option value="flip" {{if eq $mode "flip"}}selected{{end}}>Page flip</option><option value="single" {{if eq $mode "single"}}selected{{end}}>Single page</option><option value="double" {{if eq $mode "double"}}selected{{end}}>Two pages</option><option value="continuous" {{if eq $mode "continuous"}}selected{{end}}>Continuous scroll</option><option value="html" {{if eq $mode "html"}}selected{{end}}>Accessible HTML text</option></select></div>
+            <div class="form-group"><label for="embed-background">Background color</label><input type="text" id="embed-background" name="embed_background" form="publication-settings" value="{{.Flipbook.Embed.Background}}" placeholder="#FFFFFF" pattern="^$|#[0-9A-Fa-f]{3}([0-9A-Fa-f]{3})?"><p class="field-help">Leave blank to use the branding background color (dark by default).</p></div>
+            <div class="form-actions form-span-2"><button type="submit" form="publication-settings" class="btn btn-primary">Save embed settings</button><p class="field-help">Saves the embed size and behavior together with the publication settings below.</p></div>
+        </div>
+    </details>
 
     <section class="panel" aria-labelledby="slug-heading">
         <h2 id="slug-heading">Public URL slug</h2>
@@ -156,23 +175,6 @@
                 <div class="form-group"><label for="publisher-url">Publisher URL</label><input type="text" id="publisher-url" name="publisher_url" value="{{.Flipbook.Branding.PublisherURL}}"></div>
                 <div class="form-group form-span-2"><label for="attribution">Attribution text</label><input type="text" id="attribution" name="attribution" value="{{.Flipbook.Branding.Attribution}}" maxlength="500"></div>
                 <label class="checkbox-label form-span-2"><input type="checkbox" name="hide_branding" {{if .Flipbook.Branding.HideBranding}}checked{{end}}> Hide Penninn Midlun attribution</label>
-            </div>
-        </details>
-
-        <details class="panel settings-section">
-            <summary>Embed behavior</summary>
-            <div class="settings-body form-grid">
-                <fieldset class="form-group form-span-2"><legend>Embed capabilities</legend>
-                    <label class="checkbox-label"><input type="checkbox" name="embed_enabled" {{if .Flipbook.Embed.Enabled}}checked{{end}}> Allow public embedding</label>
-                    <label class="checkbox-label"><input type="checkbox" name="embed_toolbar" {{if .Flipbook.Embed.ShowToolbar}}checked{{end}}> Show toolbar</label>
-                    <label class="checkbox-label"><input type="checkbox" name="embed_search" {{if .Flipbook.Embed.ShowSearch}}checked{{end}}> Show search</label>
-                    <label class="checkbox-label"><input type="checkbox" name="embed_share" {{if .Flipbook.Embed.ShowShare}}checked{{end}}> Show share</label>
-                    <label class="checkbox-label"><input type="checkbox" name="embed_download" {{if .Flipbook.Embed.ShowDownload}}checked{{end}}> Show download</label>
-                </fieldset>
-                <div class="form-group form-span-2"><label for="embed-domains">Allowed frame-ancestor domains</label><textarea id="embed-domains" name="embed_domains" rows="3" placeholder="example.com, https://intranet.example.com">{{.AllowedDomainString}}</textarea><p class="field-help">Leave blank to allow any frame ancestor. Use a comma-separated allowlist to restrict embedding. A bare domain such as example.com also covers www.example.com; use *.example.com for every subdomain.</p></div>
-                <div class="form-group"><label for="embed-start-page">Start page</label><input type="number" id="embed-start-page" name="embed_start_page" value="{{.Flipbook.Embed.StartPage}}" min="1" {{if .Flipbook.PageCount}}max="{{.Flipbook.PageCount}}"{{end}}></div>
-                <div class="form-group"><label for="embed-reading-mode">Reading mode</label><select id="embed-reading-mode" name="embed_reading_mode">{{$mode := .Flipbook.Embed.ReadingMode}}<option value="" {{if eq $mode ""}}selected{{end}}>Viewer default</option><option value="flip" {{if eq $mode "flip"}}selected{{end}}>Page flip</option><option value="single" {{if eq $mode "single"}}selected{{end}}>Single page</option><option value="double" {{if eq $mode "double"}}selected{{end}}>Two pages</option><option value="continuous" {{if eq $mode "continuous"}}selected{{end}}>Continuous scroll</option><option value="html" {{if eq $mode "html"}}selected{{end}}>Accessible HTML text</option></select></div>
-                <div class="form-group"><label for="embed-background">Background color</label><input type="text" id="embed-background" name="embed_background" value="{{.Flipbook.Embed.Background}}" placeholder="#F8FAFC" pattern="^$|#[0-9A-Fa-f]{3}([0-9A-Fa-f]{3})?"></div>
             </div>
         </details>
 

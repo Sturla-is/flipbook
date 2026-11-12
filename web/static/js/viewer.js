@@ -978,8 +978,8 @@
 
         function embedValues() {
             return {
-                width: clamp(parseInt(byId('embed-width').value, 10) || 800, 200, 3840),
-                height: clamp(parseInt(byId('embed-height').value, 10) || 600, 150, 2160),
+                width: clamp(parseInt(byId('embed-width').value, 10) || 1200, 200, 3840),
+                height: clamp(parseInt(byId('embed-height').value, 10) || 800, 150, 2160),
                 aspect: byId('embed-aspect').value.trim(),
                 responsive: byId('embed-responsive').checked,
                 page: clamp(parseInt(byId('embed-page').value, 10) || 1, 1, Math.max(pages.length, 1)),

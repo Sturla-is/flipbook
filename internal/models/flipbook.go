@@ -81,13 +81,49 @@ type EmbedSettings struct {
 	ShowDownload   bool     `bson:"show_download" json:"show_download"`
 	ReadingMode    string   `bson:"reading_mode,omitempty" json:"reading_mode,omitempty"`
 	Background     string   `bson:"background,omitempty" json:"background,omitempty"`
+	// Width and Height are the iframe size last saved from the embed code
+	// configurator. Zero means DefaultEmbedWidth x DefaultEmbedHeight.
+	Width  int `bson:"width,omitempty" json:"width,omitempty"`
+	Height int `bson:"height,omitempty" json:"height,omitempty"`
+}
+
+const (
+	DefaultEmbedWidth      = 1200
+	DefaultEmbedHeight     = 800
+	MinEmbedDimension      = 200
+	MaxEmbedDimension      = 4000
+	DefaultEmbedBackground = "#FFFFFF"
+)
+
+// FrameWidth is the saved embed iframe width, or the default when none is saved.
+func (e EmbedSettings) FrameWidth() int {
+	if e.Width > 0 {
+		return e.Width
+	}
+	return DefaultEmbedWidth
+}
+
+// FrameHeight is the saved embed iframe height, or the default when none is saved.
+func (e EmbedSettings) FrameHeight() int {
+	if e.Height > 0 {
+		return e.Height
+	}
+	return DefaultEmbedHeight
+}
+
+// ValidFrameSize reports whether the saved size is unset (zero) or within
+// MinEmbedDimension..MaxEmbedDimension on both axes.
+func (e EmbedSettings) ValidFrameSize() bool {
+	valid := func(v int) bool { return v == 0 || (v >= MinEmbedDimension && v <= MaxEmbedDimension) }
+	return valid(e.Width) && valid(e.Height)
 }
 
 // DefaultEmbedSettings is what new workspaces and flipbooks start with.
 // Embedding is on so a copied embed code works for anonymous readers on other
-// sites; an empty AllowedDomains lets any site frame the publication.
+// sites; an empty AllowedDomains lets any site frame the publication. The
+// embedded reader starts without toolbar or search on a white background.
 func DefaultEmbedSettings() EmbedSettings {
-	return EmbedSettings{Enabled: true, StartPage: 1, ShowToolbar: true, ShowSearch: true}
+	return EmbedSettings{Enabled: true, StartPage: 1, Background: DefaultEmbedBackground}
 }
 
 type ShareSettings struct {

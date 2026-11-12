@@ -108,7 +108,7 @@ func (h *SaaSAPIHandler) GetFlipbook(w http.ResponseWriter, r *http.Request) {
 		"height":    fb.PageHeight,
 		"viewerUrl": h.baseURL + "/v/" + fb.Slug,
 		"embedUrl":  h.baseURL + "/embed/" + fb.Slug,
-		"embedCode": embedCode(h.baseURL, fb.Slug),
+		"embedCode": embedCode(h.baseURL, fb.Slug, fb.Embed),
 		"pages":     pages,
 		"error":     fb.ErrorMessage,
 		"createdAt": fb.CreatedAt.Format("2006-01-02T15:04:05Z"),
