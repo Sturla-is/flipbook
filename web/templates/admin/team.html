@@ -69,14 +69,15 @@
             <td><div class="table-actions">
                 <form method="POST" action="/admin/team/members/{{.User.ID}}/sessions" data-confirm="Revoke every session for {{.User.Name}}?">{{template "admin_csrf" $}}<button type="submit" class="btn btn-sm">Revoke sessions</button></form>
                 {{if and (ne .User.ID $.CurrentUserID) (ne .Membership.Role "owner")}}
-                    <form method="POST" action="/admin/team/members/{{.User.ID}}/disabled" data-confirm="Change this account status across all workspaces?">{{template "admin_csrf" $}}{{if .User.DisabledAt}}<input type="hidden" name="disabled" value="false"><button type="submit" class="btn btn-sm">Enable account</button>{{else}}<input type="hidden" name="disabled" value="true"><button type="submit" class="btn btn-sm">Disable account</button>{{end}}</form>
+                    {{if .CanChangeStatus}}<form method="POST" action="/admin/team/members/{{.User.ID}}/disabled" data-confirm="Change this account status across all workspaces?">{{template "admin_csrf" $}}{{if .User.DisabledAt}}<input type="hidden" name="disabled" value="false"><button type="submit" class="btn btn-sm">Enable account</button>{{else}}<input type="hidden" name="disabled" value="true"><button type="submit" class="btn btn-sm">Disable account</button>{{end}}</form>
+                    {{else if .StatusNote}}<span class="table-secondary">{{.StatusNote}}</span>{{end}}
                 {{end}}
                 {{if ne .User.ID $.WorkspaceOwnerID}}<form method="POST" action="/admin/team/members/{{.User.ID}}/remove" data-confirm="Remove {{.User.Name}} from this workspace?">{{template "admin_csrf" $}}<button type="submit" class="btn btn-sm btn-danger">Remove from workspace</button></form>{{end}}
             </div></td>
         </tr>
         {{else}}<tr><td colspan="4">No workspace members were found.</td></tr>{{end}}
         </tbody></table></div>
-        <p class="field-help">Set password replaces a member's password (12&ndash;72 characters) and signs them out of every session; share the new password through a trusted channel. You can set it for members you administer in every workspace they belong to. Owners' passwords need an owner, and single-sign-on accounts are managed by the identity provider.</p>
+        <p class="field-help">Set password replaces a member's password (12&ndash;72 characters) and signs them out of every session; share the new password through a trusted channel. You can set it for members you administer in every workspace they belong to. Owners' passwords need an owner, and single-sign-on accounts are managed by the identity provider. Disabling an account blocks sign-in and ends its sessions in every workspace, so the same rule applies: you can disable or enable only members you administer in every workspace they belong to. Your own account and workspace owners cannot be disabled here.</p>
     </section>
 
     <section class="panel" aria-labelledby="roles-heading">

@@ -19,6 +19,10 @@ type adminMemberView struct {
 	// it is hidden for members whose password this admin cannot set.
 	CanSetPassword bool
 	PasswordNote   string
+	// CanChangeStatus shows the Disable/Enable account button; StatusNote
+	// explains why it is hidden for members this admin cannot lock out.
+	CanChangeStatus bool
+	StatusNote      string
 }
 
 func (h *AdminHandler) Team(w http.ResponseWriter, r *http.Request) {
@@ -46,6 +50,7 @@ func (h *AdminHandler) renderTeam(w http.ResponseWriter, r *http.Request, actor 
 		view := adminMemberView{Membership: membership, User: user}
 		if membership.UserID != actor.UserID {
 			view.CanSetPassword, view.PasswordNote = h.memberPasswordAccess(r, actor, membership.UserID)
+			view.CanChangeStatus, view.StatusNote = h.memberStatusAccess(r, actor, user)
 		}
 		members = append(members, view)
 	}
@@ -216,6 +221,15 @@ func (h *AdminHandler) SetMemberDisabled(w http.ResponseWriter, r *http.Request)
 		h.renderTeam(w, r, actor, http.StatusConflict, map[string]any{"Error": "Your own account and workspace owners cannot be disabled from this screen."})
 		return
 	}
+	// The status is global, so the actor needs authority over the target in
+	// every workspace they belong to, not just this one.
+	if h.auth != nil {
+		if err := h.auth.CheckAccountStatusChange(r.Context(), actor.WorkspaceID, actor.UserID, userID); err != nil {
+			status, message := adminErrorMessage(err)
+			h.renderTeam(w, r, actor, status, map[string]any{"Error": message})
+			return
+		}
+	}
 	disabled := adminFormBool(r, "disabled")
 	if err := h.db.SetUserDisabled(r.Context(), userID, disabled); err != nil {
 		status, message := adminErrorMessage(err)
@@ -308,10 +322,35 @@ func (h *AdminHandler) memberPasswordAccess(r *http.Request, actor adminActor, u
 		return true, ""
 	case errors.Is(err, auth.ErrPasswordManagedBySSO):
 		return false, "Password managed by single sign-on"
-	case errors.Is(err, auth.ErrPasswordResetOwner):
+	case errors.Is(err, auth.ErrAccountActionOwner):
 		return false, "Only an owner can set this password"
-	case errors.Is(err, auth.ErrPasswordResetOtherWorkspace):
+	case errors.Is(err, auth.ErrAccountActionOtherWorkspace):
 		return false, "Also in a workspace you don't administer"
+	default:
+		return false, ""
+	}
+}
+
+// memberStatusAccess reports whether the actor may disable or enable user
+// from the Members table and, when not, a short reason to show instead.
+// Without the auth service SetMemberDisabled applies only the local guards,
+// so the button stays available to match it.
+func (h *AdminHandler) memberStatusAccess(r *http.Request, actor adminActor, user *models.User) (bool, string) {
+	if h.auth == nil {
+		return true, ""
+	}
+	action := "disable"
+	if !user.Active() {
+		action = "enable"
+	}
+	err := h.auth.CheckAccountStatusChange(r.Context(), actor.WorkspaceID, actor.UserID, user.ID)
+	switch {
+	case err == nil:
+		return true, ""
+	case errors.Is(err, auth.ErrAccountActionOwner):
+		return false, "Only an owner can " + action + " this account"
+	case errors.Is(err, auth.ErrAccountActionOtherWorkspace):
+		return false, "Can't " + action + ": also in a workspace you don't administer"
 	default:
 		return false, ""
 	}

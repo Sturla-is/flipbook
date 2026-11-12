@@ -236,13 +236,14 @@ func (a *Auth) CreateLocalUser(ctx context.Context, workspaceID, actorUserID, na
 	return user, nil
 }
 
-// passwordAuthority reports whether actorUserID may set targetUserID's password
-// without knowing the current one. A password unlocks the account everywhere,
-// so the actor needs authority over the target in every workspace the target
-// belongs to: at least admin there, and an owner where the target is an owner.
-// Checking only the current workspace would let the admin of one workspace
-// take over a user who owns another.
-func (a *Auth) passwordAuthority(ctx context.Context, workspaceID, actorUserID, targetUserID string) error {
+// accountAuthority reports whether actorUserID may act on targetUserID's
+// account as a whole: set its password without knowing the current one, or
+// disable/enable it. Both take effect in every workspace the target belongs
+// to, so the actor needs authority over the target in each of them: at least
+// admin there, and at least the target's role there (an owner where the
+// target is an owner). Checking only the current workspace would let the
+// admin of one workspace take over, or lock out, a user who owns another.
+func (a *Auth) accountAuthority(ctx context.Context, workspaceID, actorUserID, targetUserID string) error {
 	if actorUserID == targetUserID {
 		return nil
 	}
@@ -266,17 +267,40 @@ func (a *Auth) passwordAuthority(ctx context.Context, workspaceID, actorUserID, 
 			continue
 		}
 		if workspace.ID == workspaceID && targetMembership.Role == models.RoleOwner {
-			return ErrPasswordResetOwner
+			return ErrAccountActionOwner
 		}
-		return ErrPasswordResetOtherWorkspace
+		return ErrAccountActionOtherWorkspace
 	}
 	return nil
+}
+
+// CheckAccountStatusChange reports whether an admin of workspaceID may
+// disable or enable targetUserID, a member of that workspace, from the admin
+// panel. The status lives on the user record, so it locks the target out of,
+// or back into, every workspace they belong to; see accountAuthority. It
+// returns nil when allowed; otherwise ErrForbidden (or one of the
+// ErrAccountAction* errors wrapping it) or a store error. An actor can never
+// change their own status: a disabled account could not sign in to undo it.
+func (a *Auth) CheckAccountStatusChange(ctx context.Context, workspaceID, actorUserID, targetUserID string) error {
+	if a == nil || a.initErr != nil {
+		return ErrNotConfigured
+	}
+	if actorUserID == targetUserID {
+		return ErrForbidden
+	}
+	if _, err := a.managementMembership(ctx, workspaceID, actorUserID, models.RoleAdmin); err != nil {
+		return err
+	}
+	if _, err := a.store.GetMembership(ctx, workspaceID, targetUserID); err != nil {
+		return err
+	}
+	return a.accountAuthority(ctx, workspaceID, actorUserID, targetUserID)
 }
 
 // CheckPasswordReset reports whether an admin of workspaceID may set the
 // password of targetUserID, a member of that workspace, from the admin panel.
 // It returns nil when allowed; otherwise ErrForbidden (or one of the
-// ErrPasswordReset* errors wrapping it), ErrPasswordManagedBySSO, or a store
+// ErrAccountAction* errors wrapping it), ErrPasswordManagedBySSO, or a store
 // error.
 func (a *Auth) CheckPasswordReset(ctx context.Context, workspaceID, actorUserID, targetUserID string) error {
 	if a == nil || a.initErr != nil {
@@ -297,7 +321,7 @@ func (a *Auth) CheckPasswordReset(ctx context.Context, workspaceID, actorUserID,
 	if target.OIDCIssuer != "" || target.OIDCSubject != "" {
 		return ErrPasswordManagedBySSO
 	}
-	return a.passwordAuthority(ctx, workspaceID, actorUserID, targetUserID)
+	return a.accountAuthority(ctx, workspaceID, actorUserID, targetUserID)
 }
 
 // SetUserPasswordByAdmin sets the local password of a workspace member from
@@ -328,7 +352,7 @@ func (a *Auth) CheckLegacyAdminPasswordReset(ctx context.Context, workspaceID, a
 	if _, err := a.managementMembership(ctx, workspaceID, actorUserID, models.RoleAdmin); err != nil {
 		return err
 	}
-	return a.passwordAuthority(ctx, workspaceID, actorUserID, models.LegacyAdminUserID)
+	return a.accountAuthority(ctx, workspaceID, actorUserID, models.LegacyAdminUserID)
 }
 
 // SetLegacyAdminPassword rotates the primary legacy "admin" login password

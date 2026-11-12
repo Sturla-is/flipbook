@@ -261,10 +261,10 @@ func TestSetUserPasswordByAdminLetsAdminsResetPeersButNotOwners(t *testing.T) {
 		t.Fatal("peer password was not updated")
 	}
 	err := a.SetUserPasswordByAdmin(ctx, models.DefaultWorkspaceID, admin.ID, models.LegacyAdminUserID, "takeover-password-123")
-	if !errors.Is(err, ErrPasswordResetOwner) || !errors.Is(err, ErrForbidden) {
+	if !errors.Is(err, ErrAccountActionOwner) || !errors.Is(err, ErrForbidden) {
 		t.Fatalf("admin reset the owner's password: %v", err)
 	}
-	if err := a.SetLegacyAdminPassword(ctx, models.DefaultWorkspaceID, admin.ID, "takeover-password-123"); !errors.Is(err, ErrPasswordResetOwner) {
+	if err := a.SetLegacyAdminPassword(ctx, models.DefaultWorkspaceID, admin.ID, "takeover-password-123"); !errors.Is(err, ErrAccountActionOwner) {
 		t.Fatalf("admin rotated the owner's primary admin password: %v", err)
 	}
 	if err := a.CheckLegacyAdminPasswordReset(ctx, models.DefaultWorkspaceID, models.LegacyAdminUserID); err != nil {
@@ -281,7 +281,7 @@ func TestSetUserPasswordByAdminRequiresAuthorityInEveryWorkspace(t *testing.T) {
 	// Owns another workspace: an admin here must not be able to take it over.
 	foreignOwner := addUser(t, store, "owner-b@example.com", testPassword, models.RoleReader)
 	addMembership(t, store, "workspace-b", foreignOwner.ID, models.RoleOwner)
-	if err := a.SetUserPasswordByAdmin(ctx, models.DefaultWorkspaceID, admin.ID, foreignOwner.ID, "takeover-password-123"); !errors.Is(err, ErrPasswordResetOtherWorkspace) {
+	if err := a.SetUserPasswordByAdmin(ctx, models.DefaultWorkspaceID, admin.ID, foreignOwner.ID, "takeover-password-123"); !errors.Is(err, ErrAccountActionOtherWorkspace) {
 		t.Fatalf("admin reset the owner of another workspace: %v", err)
 	}
 	if !passwordMatches(store.users[foreignOwner.ID].PasswordHash, testPassword) {
@@ -291,7 +291,7 @@ func TestSetUserPasswordByAdminRequiresAuthorityInEveryWorkspace(t *testing.T) {
 	// A member elsewhere, in a workspace the actor does not belong to.
 	outsider := addUser(t, store, "outsider@example.com", testPassword, models.RoleEditor)
 	addMembership(t, store, "workspace-c", outsider.ID, models.RoleReader)
-	if err := a.SetUserPasswordByAdmin(ctx, models.DefaultWorkspaceID, admin.ID, outsider.ID, "takeover-password-123"); !errors.Is(err, ErrPasswordResetOtherWorkspace) {
+	if err := a.SetUserPasswordByAdmin(ctx, models.DefaultWorkspaceID, admin.ID, outsider.ID, "takeover-password-123"); !errors.Is(err, ErrAccountActionOtherWorkspace) {
 		t.Fatalf("admin reset a member of a workspace they do not belong to: %v", err)
 	}
 
@@ -320,6 +320,76 @@ func TestSetUserPasswordByAdminRefusesSSOAccountsAndNonMembers(t *testing.T) {
 	delete(store.memberships, models.DefaultWorkspaceID+":"+stranger.ID)
 	if err := a.SetUserPasswordByAdmin(ctx, models.DefaultWorkspaceID, models.LegacyAdminUserID, stranger.ID, "stranger-password-123"); !errors.Is(err, database.ErrNotFound) {
 		t.Fatalf("password set for a user outside the workspace: %v", err)
+	}
+}
+
+func TestCheckAccountStatusChangeRequiresAuthorityInEveryWorkspace(t *testing.T) {
+	store := newFakeStore()
+	a := testAuth(t, store, Options{})
+	ctx := context.Background()
+	admin := addUser(t, store, "admin@example.com", testPassword, models.RoleAdmin)
+
+	// Owns another workspace: disabling them here would lock them out of it.
+	foreignOwner := addUser(t, store, "owner-b@example.com", testPassword, models.RoleReader)
+	addMembership(t, store, "workspace-b", foreignOwner.ID, models.RoleOwner)
+	err := a.CheckAccountStatusChange(ctx, models.DefaultWorkspaceID, admin.ID, foreignOwner.ID)
+	if !errors.Is(err, ErrAccountActionOtherWorkspace) || !errors.Is(err, ErrForbidden) {
+		t.Fatalf("admin may disable the owner of another workspace: %v", err)
+	}
+	// Being an admin there is not enough either: the target outranks the actor.
+	addMembership(t, store, "workspace-b", admin.ID, models.RoleAdmin)
+	if err := a.CheckAccountStatusChange(ctx, models.DefaultWorkspaceID, admin.ID, foreignOwner.ID); !errors.Is(err, ErrAccountActionOtherWorkspace) {
+		t.Fatalf("admin may disable a user who owns a workspace they only administer: %v", err)
+	}
+
+	// A member elsewhere, in a workspace the actor does not belong to.
+	outsider := addUser(t, store, "outsider@example.com", testPassword, models.RoleEditor)
+	addMembership(t, store, "workspace-c", outsider.ID, models.RoleReader)
+	if err := a.CheckAccountStatusChange(ctx, models.DefaultWorkspaceID, admin.ID, outsider.ID); !errors.Is(err, ErrAccountActionOtherWorkspace) {
+		t.Fatalf("admin may disable a member of a workspace they do not belong to: %v", err)
+	}
+	// Belonging there without admin rights does not count.
+	addMembership(t, store, "workspace-c", admin.ID, models.RoleEditor)
+	if err := a.CheckAccountStatusChange(ctx, models.DefaultWorkspaceID, admin.ID, outsider.ID); !errors.Is(err, ErrAccountActionOtherWorkspace) {
+		t.Fatalf("editor elsewhere may disable a member there: %v", err)
+	}
+
+	// Allowed once the actor administers every workspace the target is in.
+	addMembership(t, store, "workspace-c", admin.ID, models.RoleAdmin)
+	if err := a.CheckAccountStatusChange(ctx, models.DefaultWorkspaceID, admin.ID, outsider.ID); err != nil {
+		t.Fatalf("admin of both workspaces may not change the status: %v", err)
+	}
+	peer := addUser(t, store, "peer@example.com", testPassword, models.RoleAdmin)
+	if err := a.CheckAccountStatusChange(ctx, models.DefaultWorkspaceID, admin.ID, peer.ID); err != nil {
+		t.Fatalf("admin may not change the status of a peer admin in a single workspace: %v", err)
+	}
+}
+
+func TestCheckAccountStatusChangeRefusesSelfOwnersAndNonAdmins(t *testing.T) {
+	store := newFakeStore()
+	a := testAuth(t, store, Options{})
+	ctx := context.Background()
+	admin := addUser(t, store, "admin@example.com", testPassword, models.RoleAdmin)
+	editor := addUser(t, store, "editor@example.com", testPassword, models.RoleEditor)
+	reader := addUser(t, store, "reader@example.com", testPassword, models.RoleReader)
+
+	if err := a.CheckAccountStatusChange(ctx, models.DefaultWorkspaceID, admin.ID, admin.ID); !errors.Is(err, ErrForbidden) {
+		t.Fatalf("admin may change their own status: %v", err)
+	}
+	if err := a.CheckAccountStatusChange(ctx, models.DefaultWorkspaceID, admin.ID, models.LegacyAdminUserID); !errors.Is(err, ErrAccountActionOwner) {
+		t.Fatalf("admin may disable the workspace owner: %v", err)
+	}
+	if err := a.CheckAccountStatusChange(ctx, models.DefaultWorkspaceID, editor.ID, reader.ID); !errors.Is(err, ErrForbidden) {
+		t.Fatalf("editor may disable a member: %v", err)
+	}
+	stranger := addUser(t, store, "stranger@example.com", testPassword, models.RoleEditor)
+	delete(store.memberships, models.DefaultWorkspaceID+":"+stranger.ID)
+	if err := a.CheckAccountStatusChange(ctx, models.DefaultWorkspaceID, admin.ID, stranger.ID); !errors.Is(err, database.ErrNotFound) {
+		t.Fatalf("admin may disable a user outside the workspace: %v", err)
+	}
+	var unconfigured *Auth
+	if err := unconfigured.CheckAccountStatusChange(ctx, models.DefaultWorkspaceID, admin.ID, reader.ID); !errors.Is(err, ErrNotConfigured) {
+		t.Fatalf("nil auth did not fail closed: %v", err)
 	}
 }
 
