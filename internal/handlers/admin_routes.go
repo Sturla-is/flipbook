@@ -22,6 +22,7 @@ func (h *AdminHandler) RegisterRoutes(r chi.Router) {
 	r.Post("/admin/team/members/{userID}/disabled", h.SetMemberDisabled)
 	r.Post("/admin/team/members/{userID}/sessions", h.RevokeMemberSessions)
 	r.Post("/admin/team/members/{userID}/profile", h.UpdateMemberProfile)
+	r.Post("/admin/team/members/{userID}/password", h.SetMemberPassword)
 
 	r.Get("/admin/workspace", h.Workspace)
 	r.Post("/admin/workspace/settings", h.UpdateWorkspace)

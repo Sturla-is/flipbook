@@ -24,10 +24,12 @@ const (
 )
 
 type adminSettingsMember struct {
-	Membership    *models.Membership
-	User          *models.User
-	AuthMethod    string
-	IsLegacyAdmin bool
+	Membership     *models.Membership
+	User           *models.User
+	AuthMethod     string
+	IsLegacyAdmin  bool
+	CanSetPassword bool
+	PasswordNote   string
 }
 
 func (h *AdminHandler) SettingsPage(w http.ResponseWriter, r *http.Request) {
@@ -56,13 +58,18 @@ func (h *AdminHandler) renderSettings(w http.ResponseWriter, r *http.Request, ac
 			h.renderError(w, r, err)
 			return
 		}
-		members = append(members, adminSettingsMember{
+		member := adminSettingsMember{
 			Membership:    membership,
 			User:          user,
 			AuthMethod:    adminAuthMethod(user, membership.UserID, legacyPasswordSet),
 			IsLegacyAdmin: membership.UserID == models.LegacyAdminUserID,
-		})
+		}
+		if !member.IsLegacyAdmin {
+			member.CanSetPassword, member.PasswordNote = h.memberPasswordAccess(r, actor, membership.UserID)
+		}
+		members = append(members, member)
 	}
+	canSetLegacyPassword := h.auth != nil && h.auth.CheckLegacyAdminPasswordReset(r.Context(), actor.WorkspaceID, actor.UserID) == nil
 	siteName, sessionTTLSeconds, loginLimit := h.instanceSettings()
 	sessionHours := (sessionTTLSeconds + 3599) / 3600
 	if sessionHours < minSessionTTLHours {
@@ -72,11 +79,12 @@ func (h *AdminHandler) renderSettings(w http.ResponseWriter, r *http.Request, ac
 		sessionHours = maxSessionTTLHours
 	}
 	data := map[string]any{
-		"PageTitle":           "Settings - Penninn Midlun",
-		"TeamSection":         "settings",
-		"Members":             members,
-		"LegacyAdminPassword": legacyPasswordSet,
-		"CurrentUserID":       actor.UserID,
+		"PageTitle":            "Settings - Penninn Midlun",
+		"TeamSection":          "settings",
+		"Members":              members,
+		"LegacyAdminPassword":  legacyPasswordSet,
+		"CanSetLegacyPassword": canSetLegacyPassword,
+		"CurrentUserID":        actor.UserID,
 		"InstanceSettings": map[string]any{
 			"SiteName":               siteName,
 			"SessionTTLHours":        sessionHours,
