@@ -16,7 +16,7 @@ func fullyPopulatedSettings() WorkspaceSettings {
 		DefaultEmbed: EmbedSettings{
 			Enabled: true, AllowedDomains: []string{"penninn.is", "example.com"}, StartPage: 3,
 			ShowToolbar: true, ShowSearch: true, ShowShare: true, ShowDownload: true,
-			ReadingMode: "single", Background: "#112233",
+			ReadingMode: "single", Background: "#112233", Width: 1024, Height: 768,
 		},
 		DefaultShare: ShareSettings{Enabled: true, Native: true, Email: true, Facebook: true, LinkedIn: true, X: true},
 	}

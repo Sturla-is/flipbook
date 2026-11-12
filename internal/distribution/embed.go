@@ -35,7 +35,7 @@ func DefaultEmbedOptions(settings models.EmbedSettings, pageCount int) EmbedOpti
 	}
 	mode := normalizeReadingMode(settings.ReadingMode)
 	return EmbedOptions{
-		Width: 800, Height: 600, Responsive: true, StartPage: page,
+		Width: settings.FrameWidth(), Height: settings.FrameHeight(), Responsive: true, StartPage: page,
 		ShowToolbar: settings.ShowToolbar, ShowSearch: settings.ShowSearch,
 		ShowShare: settings.ShowShare, ShowDownload: settings.ShowDownload,
 		ShowBranding: true, ReadingMode: mode,

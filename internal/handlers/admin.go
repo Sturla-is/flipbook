@@ -263,8 +263,9 @@ func adminJSONError(w http.ResponseWriter, message string, status int) {
 	adminJSONResponse(w, status, map[string]string{"error": message})
 }
 
-func embedCode(baseURL, slug string) string {
-	return `<iframe src="` + baseURL + `/embed/` + slug + `" width="800" height="600" frameborder="0" allowfullscreen title="Interactive flipbook" style="border:none;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1);"></iframe>`
+func embedCode(baseURL, slug string, embed models.EmbedSettings) string {
+	return fmt.Sprintf(`<iframe src="%s/embed/%s" width="%d" height="%d" frameborder="0" allowfullscreen title="Interactive flipbook" style="border:none;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1);"></iframe>`,
+		baseURL, slug, embed.FrameWidth(), embed.FrameHeight())
 }
 
 var nonAlphanumeric = regexp.MustCompile(`[^a-z0-9]+`)

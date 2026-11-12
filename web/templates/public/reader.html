@@ -126,12 +126,12 @@
     </section>
     <section id="panel-embed" role="tabpanel" aria-labelledby="tab-embed" hidden>
         <div class="embed-settings">
-            <label>Width <input id="embed-width" type="number" min="200" max="3840" value="800"></label>
-            <label>Height <input id="embed-height" type="number" min="150" max="2160" value="600"></label>
+            <label>Width <input id="embed-width" type="number" min="200" max="3840" value="{{.Client.Share.Options.Width}}"></label>
+            <label>Height <input id="embed-height" type="number" min="150" max="2160" value="{{.Client.Share.Options.Height}}"></label>
             <label>Aspect ratio <input id="embed-aspect" type="text" placeholder="16/9"></label>
             <label>Start page <input id="embed-page" type="number" min="1" max="{{.Client.PreviewPages}}" value="{{.Client.StartPage}}"></label>
             <label>Reading mode <select id="embed-mode"><option value="single">Single page</option><option value="double">Two pages</option><option value="continuous">Continuous</option><option value="text">Text mode</option></select></label>
-            <label>Background <input id="embed-background" type="color" value="#111827"></label>
+            <label>Background <input id="embed-background" type="color" value="{{$embedBackground := .Client.Share.Options.Background}}{{if eq (len $embedBackground) 7}}{{$embedBackground}}{{else}}#111827{{end}}"></label>
             <label class="checkbox-label"><input id="embed-responsive" type="checkbox" checked> Responsive</label>
             <label class="checkbox-label"><input id="embed-toolbar" type="checkbox"{{if .Client.ShowToolbar}} checked{{end}}> Toolbar</label>
             <label class="checkbox-label"><input id="embed-search" type="checkbox"{{if .Client.ShowSearch}} checked{{end}}> Search</label>

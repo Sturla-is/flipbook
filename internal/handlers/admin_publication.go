@@ -121,7 +121,7 @@ func (h *AdminHandler) detailData(r *http.Request, actor adminActor, id string) 
 		"Views":               h.db.GetViewCount(id),
 		"BaseURL":             h.baseURL,
 		"ViewerURL":           h.baseURL + "/v/" + flipbook.Slug,
-		"EmbedCode":           embedCode(h.baseURL, flipbook.Slug),
+		"EmbedCode":           embedCode(h.baseURL, flipbook.Slug, flipbook.Embed),
 		"CollectionChoices":   choices,
 		"TagString":           joinAdminValues(flipbook.Tags),
 		"KeywordString":       joinAdminValues(flipbook.SEO.Keywords),
@@ -292,6 +292,12 @@ func applyAdminSettings(flipbook *models.Flipbook, r *http.Request) error {
 		return adminInputf("Choose a supported embed reading mode.")
 	}
 	if flipbook.Embed.Background, err = validateAdminColor(r.FormValue("embed_background"), "Embed background"); err != nil {
+		return err
+	}
+	if flipbook.Embed.Width, err = parseAdminEmbedDimension(r.FormValue("embed_width"), "Embed width"); err != nil {
+		return err
+	}
+	if flipbook.Embed.Height, err = parseAdminEmbedDimension(r.FormValue("embed_height"), "Embed height"); err != nil {
 		return err
 	}
 

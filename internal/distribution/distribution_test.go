@@ -32,6 +32,28 @@ func TestEmbedOptionsAndCode(t *testing.T) {
 	}
 }
 
+func TestEmbedOptionsUseSavedFrameSize(t *testing.T) {
+	fb := &models.Flipbook{Title: "Report", Slug: "report", PageCount: 4}
+	options := DefaultEmbedOptions(fb.Embed, fb.PageCount)
+	if options.Width != 1200 || options.Height != 800 {
+		t.Fatalf("unsaved embed size = %dx%d, want 1200x800", options.Width, options.Height)
+	}
+	code, err := EmbedCode("https://reader.example", fb, options)
+	if err != nil || !strings.Contains(code, "aspect-ratio:1200/800") {
+		t.Fatalf("default embed code = %q, %v", code, err)
+	}
+
+	fb.Embed = models.EmbedSettings{Width: 960, Height: 540}
+	options = ParseEmbedOptions(url.Values{}, fb.Embed, fb.PageCount)
+	if options.Width != 960 || options.Height != 540 {
+		t.Fatalf("saved embed size = %dx%d, want 960x540", options.Width, options.Height)
+	}
+	options = ParseEmbedOptions(url.Values{"width": {"640"}, "height": {"480"}}, fb.Embed, fb.PageCount)
+	if options.Width != 640 || options.Height != 480 {
+		t.Fatalf("query size should override the saved size, got %dx%d", options.Width, options.Height)
+	}
+}
+
 func TestShareAndVideoURLs(t *testing.T) {
 	share, err := ShareURL(publishing.ShareLinkedIn, "https://reader.example/v/report?page=2", "Annual report")
 	if err != nil || !strings.HasPrefix(share, "https://www.linkedin.com/") || !strings.Contains(share, "url=https%3A%2F%2F") {

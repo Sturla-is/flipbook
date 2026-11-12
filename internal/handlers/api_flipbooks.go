@@ -263,6 +263,10 @@ func (h *APIHandler) PatchFlipbook(w http.ResponseWriter, r *http.Request) {
 		invalidAPIRequest(w, "preview and start page values must not be negative")
 		return
 	}
+	if !fb.Embed.ValidFrameSize() {
+		invalidAPIRequest(w, fmt.Sprintf("embed width and height must be 0 for the default size or between %d and %d", models.MinEmbedDimension, models.MaxEmbedDimension))
+		return
+	}
 	if fb.Sales.Enabled && (fb.Sales.PriceCents <= 0 || len(fb.Sales.Currency) != 3) {
 		invalidAPIRequest(w, "paid publications require a positive price and three-letter currency")
 		return

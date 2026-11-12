@@ -380,6 +380,15 @@ func TestIntegrationMigrationEnablesUnconfiguredEmbeds(t *testing.T) {
 		_ = client.Disconnect(ctx)
 		t.Fatal(err)
 	}
+	_, err = rawDB.Collection("workspaces").InsertOne(ctx, bson.M{
+		"_id": "customised", "slug": "customised", "name": "Customised", "owner_id": models.LegacyAdminUserID,
+		"created_at": now, "updated_at": now,
+		"settings": bson.M{"embed": bson.M{"enabled": true, "start_page": 1, "show_toolbar": true, "show_search": true, "background": "#223344"}},
+	})
+	if err != nil {
+		_ = client.Disconnect(ctx)
+		t.Fatal(err)
+	}
 	book := func(id string, embed bson.M) bson.M {
 		doc := bson.M{
 			"_id": id, "workspace_id": models.DefaultWorkspaceID, "title": id, "slug": id,
@@ -410,8 +419,15 @@ func TestIntegrationMigrationEnablesUnconfiguredEmbeds(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := workspace.Settings.DefaultEmbed; !got.Enabled || !got.ShowToolbar || !got.ShowSearch {
-		t.Fatalf("unconfigured workspace embed defaults not enabled: %+v", got)
+	if got := workspace.Settings.DefaultEmbed; !got.Enabled || got.ShowToolbar || got.ShowSearch || got.Background != "#FFFFFF" {
+		t.Fatalf("unconfigured workspace embed defaults should be enabled with no toolbar, no search, white background: %+v", got)
+	}
+	customised, err := db.GetWorkspace(ctx, "customised")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := customised.Settings.DefaultEmbed; !got.ShowToolbar || !got.ShowSearch || got.Background != "#223344" {
+		t.Fatalf("a workspace with a chosen embed background must keep its embed defaults: %+v", got)
 	}
 	want := map[string]models.EmbedSettings{
 		"pre-gate":         {Enabled: true, StartPage: 1, ShowToolbar: true, ShowSearch: true},

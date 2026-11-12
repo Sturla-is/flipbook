@@ -81,7 +81,7 @@ func (h *APIHandler) presentFlipbook(fb *models.Flipbook, includePages bool) fli
 		Flipbook:  fb,
 		ViewerURL: h.baseURL + "/v/" + fb.Slug,
 		EmbedURL:  h.baseURL + "/embed/" + fb.Slug,
-		EmbedCode: embedCode(h.baseURL, fb.Slug),
+		EmbedCode: embedCode(h.baseURL, fb.Slug, fb.Embed),
 		StatusURL: h.baseURL + "/api/flipbooks/" + fb.ID + "/status",
 		Error:     fb.ErrorMessage,
 	}
