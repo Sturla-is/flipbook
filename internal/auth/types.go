@@ -60,10 +60,11 @@ var (
 	ErrAccountLinkRequired  = errors.New("existing account must be linked before OIDC login")
 	errAuthenticationFailed = errors.New("invalid credentials")
 
-	// The password-reset refusals wrap ErrForbidden so generic permission
-	// checks still match them, while the admin panel can say which rule applied.
-	ErrPasswordResetOwner          = fmt.Errorf("%w: only an owner can set an owner's password", ErrForbidden)
-	ErrPasswordResetOtherWorkspace = fmt.Errorf("%w: user belongs to a workspace the actor does not administer", ErrForbidden)
+	// The account-action refusals (admin password reset, disable/enable) wrap
+	// ErrForbidden so generic permission checks still match them, while the
+	// admin panel can say which rule applied.
+	ErrAccountActionOwner          = fmt.Errorf("%w: only an owner can manage an owner's account", ErrForbidden)
+	ErrAccountActionOtherWorkspace = fmt.Errorf("%w: user belongs to a workspace the actor does not administer", ErrForbidden)
 	ErrPasswordManagedBySSO        = errors.New("password is managed by single sign-on")
 )
 

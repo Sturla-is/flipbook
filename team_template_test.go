@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	stdhtml "html"
 	"strings"
 	"testing"
 	"time"
@@ -12,12 +13,14 @@ import (
 // teamMember mirrors the fields the team and settings templates read from
 // handlers.adminMemberView and handlers.adminSettingsMember.
 type teamMember struct {
-	Membership     *models.Membership
-	User           *models.User
-	AuthMethod     string
-	IsLegacyAdmin  bool
-	CanSetPassword bool
-	PasswordNote   string
+	Membership      *models.Membership
+	User            *models.User
+	AuthMethod      string
+	IsLegacyAdmin   bool
+	CanSetPassword  bool
+	PasswordNote    string
+	CanChangeStatus bool
+	StatusNote      string
 }
 
 func teamTemplateMembers() []teamMember {
@@ -30,11 +33,20 @@ func teamTemplateMembers() []teamMember {
 	editorMembership, editorUser := member("editor", "Edda Editor", models.RoleEditor)
 	ssoMembership, ssoUser := member("sso", "Sigrun SSO", models.RoleReader)
 	ownerMembership, ownerUser := member("owner", "Olafur Owner", models.RoleOwner)
+	// Owns, or belongs to, a workspace the signed-in admin does not administer.
+	elsewhereMembership, elsewhereUser := member("elsewhere", "Bjork Elsewhere", models.RoleReader)
+	disabledAt := joined.Add(time.Hour)
+	foreignDisabledMembership, foreignDisabledUser := member("foreign-disabled", "Dagur Disabled", models.RoleEditor)
+	foreignDisabledUser.DisabledAt = &disabledAt
 	return []teamMember{
 		{Membership: selfMembership, User: selfUser, AuthMethod: "Local password"},
-		{Membership: editorMembership, User: editorUser, AuthMethod: "Local password", CanSetPassword: true},
-		{Membership: ssoMembership, User: ssoUser, AuthMethod: "OIDC", PasswordNote: "Password managed by single sign-on"},
+		{Membership: editorMembership, User: editorUser, AuthMethod: "Local password", CanSetPassword: true, CanChangeStatus: true},
+		{Membership: ssoMembership, User: ssoUser, AuthMethod: "OIDC", PasswordNote: "Password managed by single sign-on", CanChangeStatus: true},
 		{Membership: ownerMembership, User: ownerUser, AuthMethod: "Local password", PasswordNote: "Only an owner can set this password"},
+		{Membership: elsewhereMembership, User: elsewhereUser, AuthMethod: "Local password",
+			PasswordNote: "Also in a workspace you don't administer", StatusNote: "Can't disable: also in a workspace you don't administer"},
+		{Membership: foreignDisabledMembership, User: foreignDisabledUser, AuthMethod: "Local password",
+			PasswordNote: "Also in a workspace you don't administer", StatusNote: "Can't enable: also in a workspace you don't administer"},
 	}
 }
 
@@ -69,9 +81,33 @@ func TestTeamTemplateShowsMemberPasswordControls(t *testing.T) {
 			t.Errorf("team page does not contain %q", expected)
 		}
 	}
-	for _, userID := range []string{"self", "sso", "owner"} {
+	for _, userID := range []string{"self", "sso", "owner", "elsewhere"} {
 		if strings.Contains(html, `action="/admin/team/members/`+userID+`/password"`) {
 			t.Errorf("team page offers a set-password form for %s", userID)
+		}
+	}
+}
+
+func TestTeamTemplateHidesAccountStatusButtonWhenCheckFails(t *testing.T) {
+	html := renderAdminTemplate(t, "admin_team", map[string]any{"TeamSection": "members", "Members": teamTemplateMembers()})
+
+	for _, userID := range []string{"editor", "sso"} {
+		if !strings.Contains(html, `action="/admin/team/members/`+userID+`/disabled"`) {
+			t.Errorf("team page lost the account-status button for %s", userID)
+		}
+	}
+	// Refused by the cross-workspace check, plus the local self and owner rules.
+	for _, userID := range []string{"elsewhere", "foreign-disabled", "self", "owner"} {
+		if strings.Contains(html, `action="/admin/team/members/`+userID+`/disabled"`) {
+			t.Errorf("team page offers the account-status button for %s", userID)
+		}
+	}
+	for _, expected := range []string{
+		"Can't disable: also in a workspace you don't administer",
+		"Can't enable: also in a workspace you don't administer",
+	} {
+		if !strings.Contains(stdhtml.UnescapeString(html), expected) {
+			t.Errorf("team page does not explain the hidden button: missing %q", expected)
 		}
 	}
 }
