@@ -39,18 +39,25 @@ func (a *Auth) ChangePassword(ctx context.Context, userID, currentPassword, newP
 	if a == nil || a.initErr != nil {
 		return ErrNotConfigured
 	}
-	user, err := a.store.GetUser(ctx, userID)
-	if err != nil {
-		return err
-	}
-	if !user.Active() || !passwordMatches(user.PasswordHash, currentPassword) {
-		return errAuthenticationFailed
+	if userID == models.LegacyAdminUserID {
+		// The primary "admin" login verifies against the legacy setting first.
+		if _, err := a.legacyPasswordUser(ctx, currentPassword, false); err != nil {
+			return err
+		}
+	} else {
+		user, err := a.store.GetUser(ctx, userID)
+		if err != nil {
+			return err
+		}
+		if !user.Active() || !passwordMatches(user.PasswordHash, currentPassword) {
+			return errAuthenticationFailed
+		}
 	}
 	hash, err := hashPassword(newPassword)
 	if err != nil {
 		return err
 	}
-	if err := a.store.SetUserPassword(ctx, userID, hash); err != nil {
+	if err := a.storeUserHash(ctx, userID, hash); err != nil {
 		return err
 	}
 	a.audit(ctx, models.DefaultWorkspaceID, userID, "", "auth.password.change", "user", userID, "success", nil)
@@ -229,44 +236,106 @@ func (a *Auth) CreateLocalUser(ctx context.Context, workspaceID, actorUserID, na
 	return user, nil
 }
 
-// SetUserPasswordByAdmin resets the local password of a workspace member from
-// the admin panel. It revokes every session of the target user. Only workspace
-// admins may reset passwords, and an owner's password can only be reset by an
-// owner.
-func (a *Auth) SetUserPasswordByAdmin(ctx context.Context, workspaceID, actorUserID, targetUserID, newPassword string) error {
+// passwordAuthority reports whether actorUserID may set targetUserID's password
+// without knowing the current one. A password unlocks the account everywhere,
+// so the actor needs authority over the target in every workspace the target
+// belongs to: at least admin there, and an owner where the target is an owner.
+// Checking only the current workspace would let the admin of one workspace
+// take over a user who owns another.
+func (a *Auth) passwordAuthority(ctx context.Context, workspaceID, actorUserID, targetUserID string) error {
+	if actorUserID == targetUserID {
+		return nil
+	}
+	workspaces, err := a.store.ListWorkspacesForUser(ctx, targetUserID)
+	if err != nil {
+		return err
+	}
+	for _, workspace := range workspaces {
+		targetMembership, err := a.store.GetMembership(ctx, workspace.ID, targetUserID)
+		if errors.Is(err, database.ErrNotFound) {
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		actorMembership, err := a.store.GetMembership(ctx, workspace.ID, actorUserID)
+		if err != nil && !errors.Is(err, database.ErrNotFound) {
+			return err
+		}
+		if err == nil && actorMembership.Role.AtLeast(models.RoleAdmin) && actorMembership.Role.AtLeast(targetMembership.Role) {
+			continue
+		}
+		if workspace.ID == workspaceID && targetMembership.Role == models.RoleOwner {
+			return ErrPasswordResetOwner
+		}
+		return ErrPasswordResetOtherWorkspace
+	}
+	return nil
+}
+
+// CheckPasswordReset reports whether an admin of workspaceID may set the
+// password of targetUserID, a member of that workspace, from the admin panel.
+// It returns nil when allowed; otherwise ErrForbidden (or one of the
+// ErrPasswordReset* errors wrapping it), ErrPasswordManagedBySSO, or a store
+// error.
+func (a *Auth) CheckPasswordReset(ctx context.Context, workspaceID, actorUserID, targetUserID string) error {
 	if a == nil || a.initErr != nil {
 		return ErrNotConfigured
 	}
-	actorMembership, err := a.managementMembership(ctx, workspaceID, actorUserID, models.RoleAdmin)
+	if _, err := a.managementMembership(ctx, workspaceID, actorUserID, models.RoleAdmin); err != nil {
+		return err
+	}
+	if _, err := a.store.GetMembership(ctx, workspaceID, targetUserID); err != nil {
+		return err
+	}
+	target, err := a.store.GetUser(ctx, targetUserID)
 	if err != nil {
 		return err
 	}
-	targetMembership, err := a.store.GetMembership(ctx, workspaceID, targetUserID)
-	if err != nil {
-		return err
+	// A local password on a single-sign-on account would survive the user
+	// being offboarded at the identity provider.
+	if target.OIDCIssuer != "" || target.OIDCSubject != "" {
+		return ErrPasswordManagedBySSO
 	}
-	if targetMembership.Role == models.RoleOwner && actorMembership.Role != models.RoleOwner {
-		return ErrForbidden
+	return a.passwordAuthority(ctx, workspaceID, actorUserID, targetUserID)
+}
+
+// SetUserPasswordByAdmin sets the local password of a workspace member from
+// the admin panel and revokes every session of that user. See
+// CheckPasswordReset for who may do this.
+func (a *Auth) SetUserPasswordByAdmin(ctx context.Context, workspaceID, actorUserID, targetUserID, newPassword string) error {
+	if err := a.CheckPasswordReset(ctx, workspaceID, actorUserID, targetUserID); err != nil {
+		return err
 	}
 	hash, err := hashPassword(newPassword)
 	if err != nil {
 		return err
 	}
-	if err := a.store.SetUserPassword(ctx, targetUserID, hash); err != nil {
+	if err := a.storeUserHash(ctx, targetUserID, hash); err != nil {
 		return err
 	}
 	a.audit(ctx, workspaceID, actorUserID, "", "auth.password.admin_set", "user", targetUserID, "success", nil)
 	return nil
 }
 
-// SetLegacyAdminPassword rotates the primary legacy "admin" login password
-// from the admin panel, replacing the CLI-only set-password flow for signed-in
-// admins. It revokes every session of the legacy admin user.
-func (a *Auth) SetLegacyAdminPassword(ctx context.Context, workspaceID, actorUserID, newPassword string) error {
+// CheckLegacyAdminPasswordReset reports whether actorUserID may rotate the
+// primary "admin" login password. The legacy admin owns the default
+// workspace, so in practice only an owner there may, or the account itself.
+func (a *Auth) CheckLegacyAdminPasswordReset(ctx context.Context, workspaceID, actorUserID string) error {
 	if a == nil || a.initErr != nil {
 		return ErrNotConfigured
 	}
 	if _, err := a.managementMembership(ctx, workspaceID, actorUserID, models.RoleAdmin); err != nil {
+		return err
+	}
+	return a.passwordAuthority(ctx, workspaceID, actorUserID, models.LegacyAdminUserID)
+}
+
+// SetLegacyAdminPassword rotates the primary legacy "admin" login password
+// from the admin panel, replacing the CLI-only set-password flow for signed-in
+// admins. It revokes every session of the legacy admin user.
+func (a *Auth) SetLegacyAdminPassword(ctx context.Context, workspaceID, actorUserID, newPassword string) error {
+	if err := a.CheckLegacyAdminPasswordReset(ctx, workspaceID, actorUserID); err != nil {
 		return err
 	}
 	if err := a.SetPassword(newPassword); err != nil {

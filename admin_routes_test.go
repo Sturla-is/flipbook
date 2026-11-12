@@ -142,6 +142,7 @@ func TestAdminMutationsRejectRequestsWithoutCSRFToken(t *testing.T) {
 		"POST /admin/upload", "POST /admin/import", "POST /admin/bulk",
 		"POST /admin/flipbooks/{id}/delete", "POST /admin/flipbooks/{id}/replace", "POST /admin/flipbooks/{id}/publish",
 		"POST /admin/flipbooks/{id}/share-tokens", "POST /admin/team/members/{userID}/role",
+		"POST /admin/team/members/{userID}/password",
 		"POST /admin/security/api-keys", "POST /admin/settings/admins",
 		"POST /admin/uploads", "PUT /admin/uploads/{uploadID}", "DELETE /admin/uploads/{uploadID}",
 	} {

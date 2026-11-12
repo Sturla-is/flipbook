@@ -61,14 +61,30 @@ func (a *Auth) SetPassword(password string) error {
 	if err != nil {
 		return err
 	}
-	if err := a.store.SetSetting(settingPwdHash, hash); err != nil {
-		return err
-	}
-	if err := a.store.SetUserPassword(ctx, user.ID, hash); err != nil {
+	if err := a.storeLegacyAdminHash(ctx, hash); err != nil {
 		return err
 	}
 	a.audit(ctx, models.DefaultWorkspaceID, user.ID, "", "auth.password.set", "user", user.ID, "success", nil)
 	return nil
+}
+
+// storeLegacyAdminHash writes the primary "admin" password to both places it
+// is read from. Sign-in checks the legacy setting first, so updating only the
+// user record would leave the old password working and the new one rejected.
+func (a *Auth) storeLegacyAdminHash(ctx context.Context, hash string) error {
+	if err := a.store.SetSetting(settingPwdHash, hash); err != nil {
+		return err
+	}
+	return a.store.SetUserPassword(ctx, models.LegacyAdminUserID, hash)
+}
+
+// storeUserHash sets a user's password hash, routing the primary "admin"
+// account through storeLegacyAdminHash. The store revokes the user's sessions.
+func (a *Auth) storeUserHash(ctx context.Context, userID, hash string) error {
+	if userID == models.LegacyAdminUserID {
+		return a.storeLegacyAdminHash(ctx, hash)
+	}
+	return a.store.SetUserPassword(ctx, userID, hash)
 }
 
 // CheckPassword retains the legacy password-only verification method.

@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/metavert-io/flipbook/internal/database"
 	"github.com/metavert-io/flipbook/internal/models"
 )
 
@@ -233,5 +234,122 @@ func TestAdminSettingsAuditMessagesAreSanitized(t *testing.T) {
 	}
 	if len(store.audits) != 1 || store.audits[0].Metadata["role"] != "admin" {
 		t.Fatalf("unexpected audit payload: %+v", store.audits)
+	}
+}
+
+func addMembership(t *testing.T, store *fakeStore, workspaceID, userID string, role models.Role) {
+	t.Helper()
+	if _, ok := store.workspaces[workspaceID]; !ok {
+		store.workspaces[workspaceID] = &models.Workspace{ID: workspaceID, Name: workspaceID, OwnerID: userID}
+	}
+	if err := store.UpsertMembership(context.Background(), &models.Membership{WorkspaceID: workspaceID, UserID: userID, Role: role}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestSetUserPasswordByAdminLetsAdminsResetPeersButNotOwners(t *testing.T) {
+	store := newFakeStore()
+	a := testAuth(t, store, Options{})
+	ctx := context.Background()
+	admin := addUser(t, store, "admin@example.com", testPassword, models.RoleAdmin)
+	peer := addUser(t, store, "peer@example.com", testPassword, models.RoleAdmin)
+
+	if err := a.SetUserPasswordByAdmin(ctx, models.DefaultWorkspaceID, admin.ID, peer.ID, "peer-password-123"); err != nil {
+		t.Fatalf("admin could not reset a peer admin: %v", err)
+	}
+	if !passwordMatches(store.users[peer.ID].PasswordHash, "peer-password-123") {
+		t.Fatal("peer password was not updated")
+	}
+	err := a.SetUserPasswordByAdmin(ctx, models.DefaultWorkspaceID, admin.ID, models.LegacyAdminUserID, "takeover-password-123")
+	if !errors.Is(err, ErrPasswordResetOwner) || !errors.Is(err, ErrForbidden) {
+		t.Fatalf("admin reset the owner's password: %v", err)
+	}
+	if err := a.SetLegacyAdminPassword(ctx, models.DefaultWorkspaceID, admin.ID, "takeover-password-123"); !errors.Is(err, ErrPasswordResetOwner) {
+		t.Fatalf("admin rotated the owner's primary admin password: %v", err)
+	}
+	if err := a.CheckLegacyAdminPasswordReset(ctx, models.DefaultWorkspaceID, models.LegacyAdminUserID); err != nil {
+		t.Fatalf("owner could not rotate own primary password: %v", err)
+	}
+}
+
+func TestSetUserPasswordByAdminRequiresAuthorityInEveryWorkspace(t *testing.T) {
+	store := newFakeStore()
+	a := testAuth(t, store, Options{})
+	ctx := context.Background()
+	admin := addUser(t, store, "admin@example.com", testPassword, models.RoleAdmin)
+
+	// Owns another workspace: an admin here must not be able to take it over.
+	foreignOwner := addUser(t, store, "owner-b@example.com", testPassword, models.RoleReader)
+	addMembership(t, store, "workspace-b", foreignOwner.ID, models.RoleOwner)
+	if err := a.SetUserPasswordByAdmin(ctx, models.DefaultWorkspaceID, admin.ID, foreignOwner.ID, "takeover-password-123"); !errors.Is(err, ErrPasswordResetOtherWorkspace) {
+		t.Fatalf("admin reset the owner of another workspace: %v", err)
+	}
+	if !passwordMatches(store.users[foreignOwner.ID].PasswordHash, testPassword) {
+		t.Fatal("refused reset still changed the password")
+	}
+
+	// A member elsewhere, in a workspace the actor does not belong to.
+	outsider := addUser(t, store, "outsider@example.com", testPassword, models.RoleEditor)
+	addMembership(t, store, "workspace-c", outsider.ID, models.RoleReader)
+	if err := a.SetUserPasswordByAdmin(ctx, models.DefaultWorkspaceID, admin.ID, outsider.ID, "takeover-password-123"); !errors.Is(err, ErrPasswordResetOtherWorkspace) {
+		t.Fatalf("admin reset a member of a workspace they do not belong to: %v", err)
+	}
+
+	// Allowed once the actor administers every workspace the target is in.
+	addMembership(t, store, "workspace-c", admin.ID, models.RoleAdmin)
+	if err := a.SetUserPasswordByAdmin(ctx, models.DefaultWorkspaceID, admin.ID, outsider.ID, "shared-password-123"); err != nil {
+		t.Fatalf("admin of both workspaces could not reset: %v", err)
+	}
+	if !passwordMatches(store.users[outsider.ID].PasswordHash, "shared-password-123") {
+		t.Fatal("password was not updated")
+	}
+}
+
+func TestSetUserPasswordByAdminRefusesSSOAccountsAndNonMembers(t *testing.T) {
+	store := newFakeStore()
+	a := testAuth(t, store, Options{})
+	ctx := context.Background()
+	sso := addUser(t, store, "sso@example.com", testPassword, models.RoleEditor)
+	store.users[sso.ID].OIDCIssuer = "https://idp.example.com"
+	store.users[sso.ID].OIDCSubject = "subject-1"
+	if err := a.SetUserPasswordByAdmin(ctx, models.DefaultWorkspaceID, models.LegacyAdminUserID, sso.ID, "local-password-123"); !errors.Is(err, ErrPasswordManagedBySSO) {
+		t.Fatalf("single-sign-on account got a local password: %v", err)
+	}
+
+	stranger := addUser(t, store, "stranger@example.com", testPassword, models.RoleEditor)
+	delete(store.memberships, models.DefaultWorkspaceID+":"+stranger.ID)
+	if err := a.SetUserPasswordByAdmin(ctx, models.DefaultWorkspaceID, models.LegacyAdminUserID, stranger.ID, "stranger-password-123"); !errors.Is(err, database.ErrNotFound) {
+		t.Fatalf("password set for a user outside the workspace: %v", err)
+	}
+}
+
+func TestPasswordChangesOnLegacyAdminUpdateBothRepresentations(t *testing.T) {
+	store := newFakeStore()
+	a := testAuth(t, store, Options{})
+	ctx := context.Background()
+	if err := a.SetPassword(testPassword); err != nil {
+		t.Fatal(err)
+	}
+
+	// Reset through the member path, as the Settings and Team tables do.
+	if err := a.SetUserPasswordByAdmin(ctx, models.DefaultWorkspaceID, models.LegacyAdminUserID, models.LegacyAdminUserID, "member-path-123"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.legacyPasswordUser(ctx, "member-path-123", false); err != nil {
+		t.Fatalf("new primary admin password is rejected at sign-in: %v", err)
+	}
+	if _, err := a.legacyPasswordUser(ctx, testPassword, false); err == nil {
+		t.Fatal("old primary admin password still signs in")
+	}
+
+	// Self-service change with the current password.
+	if err := a.ChangePassword(ctx, models.LegacyAdminUserID, "member-path-123", "self-service-123"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.legacyPasswordUser(ctx, "self-service-123", false); err != nil {
+		t.Fatalf("changed primary admin password is rejected at sign-in: %v", err)
+	}
+	if err := a.ChangePassword(ctx, models.LegacyAdminUserID, "wrong-password-123", "another-password-123"); !errors.Is(err, errAuthenticationFailed) {
+		t.Fatalf("wrong current password was accepted: %v", err)
 	}
 }

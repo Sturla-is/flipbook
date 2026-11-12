@@ -53,7 +53,19 @@
                 {{else}}<form method="POST" action="/admin/team/members/{{.User.ID}}/role" class="inline-form">{{template "admin_csrf" $}}<label for="member-role-{{.User.ID}}" class="sr-only">Role for {{.User.Name}}</label><select id="member-role-{{.User.ID}}" name="role">{{$role := .Membership.Role}}<option value="reader" {{if eq $role "reader"}}selected{{end}}>Reader</option><option value="editor" {{if eq $role "editor"}}selected{{end}}>Editor</option><option value="publisher" {{if eq $role "publisher"}}selected{{end}}>Publisher</option><option value="admin" {{if eq $role "admin"}}selected{{end}}>Admin</option></select><button type="submit" class="btn btn-sm">Change role</button></form>{{end}}
                 <span class="table-secondary">Joined {{.Membership.CreatedAt.Format "2006-01-02"}}</span>
             </td>
-            <td>{{if .User.DisabledAt}}<span class="badge badge-error">Disabled globally</span>{{else}}<span class="badge badge-ready">Active</span>{{end}}{{if .User.LastLoginAt}}<span class="table-secondary">Last login {{.User.LastLoginAt.Format "2006-01-02 15:04"}}</span>{{end}}</td>
+            <td>{{if .User.DisabledAt}}<span class="badge badge-error">Disabled globally</span>{{else}}<span class="badge badge-ready">Active</span>{{end}}{{if .User.LastLoginAt}}<span class="table-secondary">Last login {{.User.LastLoginAt.Format "2006-01-02 15:04"}}</span>{{end}}
+                {{if eq .User.ID $.CurrentUserID}}<span class="table-secondary"><a href="/account/password">Change my password</a></span>
+                {{else if .CanSetPassword}}
+                <details class="inline-details"><summary>Set password</summary>
+                    <form method="POST" action="/admin/team/members/{{.User.ID}}/password" class="form-grid compact-form" data-confirm="Set a new password for {{.User.Name}}? They will be signed out of every session.">
+                        {{template "admin_csrf" $}}
+                        <div class="form-group"><label for="team-password-{{.User.ID}}">New password</label><input type="password" id="team-password-{{.User.ID}}" name="password" minlength="12" maxlength="72" required autocomplete="new-password"></div>
+                        <div class="form-group"><label for="team-password-confirm-{{.User.ID}}">Confirm password</label><input type="password" id="team-password-confirm-{{.User.ID}}" name="confirm_password" minlength="12" maxlength="72" required autocomplete="new-password"></div>
+                        <button type="submit" class="btn btn-sm">Set password</button>
+                    </form>
+                </details>
+                {{else if .PasswordNote}}<span class="table-secondary">{{.PasswordNote}}</span>{{end}}
+            </td>
             <td><div class="table-actions">
                 <form method="POST" action="/admin/team/members/{{.User.ID}}/sessions" data-confirm="Revoke every session for {{.User.Name}}?">{{template "admin_csrf" $}}<button type="submit" class="btn btn-sm">Revoke sessions</button></form>
                 {{if and (ne .User.ID $.CurrentUserID) (ne .Membership.Role "owner")}}
@@ -64,6 +76,7 @@
         </tr>
         {{else}}<tr><td colspan="4">No workspace members were found.</td></tr>{{end}}
         </tbody></table></div>
+        <p class="field-help">Set password replaces a member's password (12&ndash;72 characters) and signs them out of every session; share the new password through a trusted channel. You can set it for members you administer in every workspace they belong to. Owners' passwords need an owner, and single-sign-on accounts are managed by the identity provider.</p>
     </section>
 
     <section class="panel" aria-labelledby="roles-heading">

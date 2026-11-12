@@ -198,6 +198,12 @@ func adminErrorMessage(err error) (int, string) {
 	switch {
 	case errors.Is(err, errAdminUnauthorized), errors.Is(err, auth.ErrUnauthorized):
 		return http.StatusUnauthorized, "Authentication is required."
+	case errors.Is(err, auth.ErrPasswordResetOwner):
+		return http.StatusForbidden, "Only a workspace owner can set an owner's password."
+	case errors.Is(err, auth.ErrPasswordResetOtherWorkspace):
+		return http.StatusForbidden, "This user also belongs to a workspace where you are not an administrator, so you cannot set their password."
+	case errors.Is(err, auth.ErrPasswordManagedBySSO):
+		return http.StatusConflict, "This user signs in with single sign-on. Their password is managed by the identity provider."
 	case errors.Is(err, errAdminForbidden), errors.Is(err, auth.ErrForbidden), errors.Is(err, database.ErrForbidden):
 		return http.StatusForbidden, "You do not have permission to perform this action."
 	case errors.Is(err, errAdminUnavailable), errors.Is(err, auth.ErrNotConfigured):

@@ -26,6 +26,7 @@
     <section class="panel" aria-labelledby="primary-password-heading">
         <h2 id="primary-password-heading">Primary administrator password</h2>
         <p class="field-help">{{if .LegacyAdminPassword}}A password is configured for the primary &ldquo;admin&rdquo; login. Use this form to rotate it.{{else}}No password is set yet for the primary &ldquo;admin&rdquo; login. Set one here instead of the server command line.{{end}}</p>
+        {{if .CanSetLegacyPassword}}
         <form method="POST" action="/admin/settings/password" class="form-grid" data-confirm="Change the primary administrator password?">
             {{template "admin_csrf" .}}
             <div class="form-group"><label for="admin-password">New password</label><input type="password" id="admin-password" name="password" minlength="12" maxlength="72" required autocomplete="new-password"></div>
@@ -33,6 +34,9 @@
             <div class="form-actions"><button type="submit" class="btn btn-primary">Change administrator password</button></div>
         </form>
         <p class="field-help">Changing this password signs out every session that uses the primary &ldquo;admin&rdquo; login, including this one.</p>
+        {{else}}
+        <p class="field-help">Only an owner of the default workspace can change the primary administrator password.</p>
+        {{end}}
     </section>
 
     <section class="panel" aria-labelledby="member-passwords-heading">
@@ -49,7 +53,7 @@
             <td>{{if .User.DisabledAt}}<span class="badge badge-error">Disabled</span>{{else}}<span class="badge badge-ready">Active</span>{{end}}{{if .User.LastLoginAt}}<span class="table-secondary">Last login {{.User.LastLoginAt.Format "2006-01-02 15:04"}}</span>{{end}}</td>
             <td>
                 {{if .IsLegacyAdmin}}<span class="text-muted">Use the panel above</span>
-                {{else if eq .AuthMethod "OIDC"}}<span class="text-muted">Managed by OIDC</span>
+                {{else if not .CanSetPassword}}<span class="text-muted">{{if .PasswordNote}}{{.PasswordNote}}{{else}}Not available{{end}}</span>
                 {{else}}
                 <details class="inline-details"><summary>Set password</summary>
                     <form method="POST" action="/admin/settings/admins/{{.User.ID}}/password" class="form-grid compact-form">

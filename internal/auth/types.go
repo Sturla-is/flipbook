@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"errors"
+	"fmt"
 	"html/template"
 	"io"
 	"net"
@@ -58,6 +59,12 @@ var (
 	ErrOIDC                 = errors.New("OpenID Connect authentication failed")
 	ErrAccountLinkRequired  = errors.New("existing account must be linked before OIDC login")
 	errAuthenticationFailed = errors.New("invalid credentials")
+
+	// The password-reset refusals wrap ErrForbidden so generic permission
+	// checks still match them, while the admin panel can say which rule applied.
+	ErrPasswordResetOwner          = fmt.Errorf("%w: only an owner can set an owner's password", ErrForbidden)
+	ErrPasswordResetOtherWorkspace = fmt.Errorf("%w: user belongs to a workspace the actor does not administer", ErrForbidden)
+	ErrPasswordManagedBySSO        = errors.New("password is managed by single sign-on")
 )
 
 type Store interface {

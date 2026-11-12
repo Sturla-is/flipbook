@@ -1,18 +1,24 @@
 package handlers
 
 import (
+	"errors"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/metavert-io/flipbook/internal/auth"
 	"github.com/metavert-io/flipbook/internal/models"
 )
 
 type adminMemberView struct {
 	Membership *models.Membership
 	User       *models.User
+	// CanSetPassword shows the set-password form; PasswordNote explains why
+	// it is hidden for members whose password this admin cannot set.
+	CanSetPassword bool
+	PasswordNote   string
 }
 
 func (h *AdminHandler) Team(w http.ResponseWriter, r *http.Request) {
@@ -37,7 +43,11 @@ func (h *AdminHandler) renderTeam(w http.ResponseWriter, r *http.Request, actor 
 			h.renderError(w, r, err)
 			return
 		}
-		members = append(members, adminMemberView{Membership: membership, User: user})
+		view := adminMemberView{Membership: membership, User: user}
+		if membership.UserID != actor.UserID {
+			view.CanSetPassword, view.PasswordNote = h.memberPasswordAccess(r, actor, membership.UserID)
+		}
+		members = append(members, view)
 	}
 	workspace, err := h.db.GetWorkspace(r.Context(), actor.WorkspaceID)
 	if err != nil {
@@ -284,4 +294,69 @@ func (h *AdminHandler) UpdateMemberProfile(w http.ResponseWriter, r *http.Reques
 	}
 	h.audit(r, actor, "workspace.member.profile", "user", userID, "success", nil)
 	http.Redirect(w, r, "/admin/team?notice="+url.QueryEscape("User profile updated."), http.StatusSeeOther)
+}
+
+// memberPasswordAccess reports whether the actor may set userID's password
+// from the Members table and, when not, a short reason to show instead.
+func (h *AdminHandler) memberPasswordAccess(r *http.Request, actor adminActor, userID string) (bool, string) {
+	if h.auth == nil {
+		return false, ""
+	}
+	err := h.auth.CheckPasswordReset(r.Context(), actor.WorkspaceID, actor.UserID, userID)
+	switch {
+	case err == nil:
+		return true, ""
+	case errors.Is(err, auth.ErrPasswordManagedBySSO):
+		return false, "Password managed by single sign-on"
+	case errors.Is(err, auth.ErrPasswordResetOwner):
+		return false, "Only an owner can set this password"
+	case errors.Is(err, auth.ErrPasswordResetOtherWorkspace):
+		return false, "Also in a workspace you don't administer"
+	default:
+		return false, ""
+	}
+}
+
+// SetMemberPassword sets a new password for another workspace member and signs
+// them out of every session. Admins change their own password at
+// /account/password, which asks for the current one, so a hijacked session
+// cannot lock the real user out.
+func (h *AdminHandler) SetMemberPassword(w http.ResponseWriter, r *http.Request) {
+	actor, err := adminActorFromRequest(r, models.RoleAdmin)
+	if err != nil {
+		h.renderError(w, r, err)
+		return
+	}
+	if h.auth == nil {
+		h.renderTeam(w, r, actor, http.StatusServiceUnavailable, map[string]any{"Error": "Password management requires authentication service wiring."})
+		return
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, 2<<20)
+	if err := r.ParseForm(); err != nil {
+		h.renderTeam(w, r, actor, http.StatusBadRequest, map[string]any{"Error": "The password form is invalid."})
+		return
+	}
+	userID := chi.URLParam(r, "userID")
+	if userID == actor.UserID {
+		h.renderTeam(w, r, actor, http.StatusConflict, map[string]any{"Error": "Change your own password with Change my password; it asks for your current password."})
+		return
+	}
+	if r.FormValue("password") != r.FormValue("confirm_password") {
+		h.renderTeam(w, r, actor, http.StatusBadRequest, map[string]any{"Error": "Passwords do not match."})
+		return
+	}
+	if err := h.auth.SetUserPasswordByAdmin(r.Context(), actor.WorkspaceID, actor.UserID, userID, r.FormValue("password")); err != nil {
+		status, message := adminErrorMessage(err)
+		if status == http.StatusInternalServerError {
+			status = http.StatusBadRequest
+			message = "The password could not be changed."
+		}
+		h.renderTeam(w, r, actor, status, map[string]any{"Error": message})
+		return
+	}
+	notice := "Password changed. The user was signed out of every session; share the new password with them through a trusted channel."
+	if user, err := h.db.GetUser(r.Context(), userID); err == nil && user.Name != "" {
+		notice = "Password changed for " + user.Name + ". They were signed out of every session; share the new password with them through a trusted channel."
+	}
+	http.Redirect(w, r, "/admin/team?notice="+url.QueryEscape(notice), http.StatusSeeOther)
 }
